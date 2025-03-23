@@ -62,9 +62,11 @@ class VNT_PT_uicategory(Panel):
         a = r1spt.row() 
         b = r1spt.row() 
         
-        a.enabled = True if cs.meshing_tool == "BlockMesh" else False
+        a.enabled = True
+        #if cs.meshing_tool == "BlockMesh" else False
         a.operator(VNT_OT_venturial_maintools.bl_idname, text="BlockMesh", depress=True if cs.meshing_tool != "SnappyHexMesh" else False).maintools = "BlockMesh"
-        b.enabled = True if cs.meshing_tool == "SnappyHexMesh" else False
+        b.enabled = True
+        #if cs.meshing_tool == "SnappyHexMesh" else False
         b.operator(VNT_OT_venturial_maintools.bl_idname, text="SnappyHexMesh", depress=True if cs.meshing_tool != "BlockMesh" else False).maintools = "SnappyHexMesh"
         
         row2 = layout.row()

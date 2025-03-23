@@ -90,6 +90,8 @@ classes = (
     VNT_OT_open_case,
     VNT_OT_delete_mesh_file_items,
     VNT_OT_deactivate_mesh_file_item,
+    VNT_OT_stl_browse,
+    VNT_OT_import_stl_geometry,
     VNT_OT_dev_mode,
     VNT_OT_dev_tools,
     VNT_OT_user_general_settings,
@@ -195,9 +197,11 @@ def register():
         "file-browser-2", "/venturial/icons/custom_icons/file-browser-2.png"
     )
 
+
     for cls in classes:
         register_class(cls)
 
+    bpy.types.Scene.stl_file = StringProperty(name="STL File", default="")
     bpy.types.Scene.search_tuts = StringProperty(default="Search Tutorials")
     bpy.types.Scene.search_recents = StringProperty(default="Search Recents")
     bpy.types.Scene.edit_dict_name = BoolProperty(default=True)
@@ -541,6 +545,8 @@ def unregister():
         "file-browser-2", "/venturial/icons/custom_icons/file-browser-2.png"
     )
 
+
+    del bpy.types.Scene.stl_file
     del bpy.types.Scene.ui_category
     del bpy.types.Scene.tool_type
     del bpy.types.Scene.prompt_meshing_tool
