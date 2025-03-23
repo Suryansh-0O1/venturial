@@ -255,6 +255,20 @@ def draw_p(self, context):
     Algorithm to be changed 
     '''
     cs = context.scene
+
+    # Appened empty list to match length of cs.ecustom
+    while len(verts) < len(cs.ecustom):
+        verts.append([])
+
+        
+    # Appened None to match length of cs.ecustom
+    while len(a) < len(cs.ecustom):
+        a.append(None)
+
+    # print("Length of verts =======  " +str(len(verts)))
+    # print("Length of cs.ecustom =======  " +str(len(cs.ecustom)))
+    # print("Length of a =======  "+str(len(a)))
+
     for i in range(len(cs.ecustom)):
         if a[i] != None:
             try:
