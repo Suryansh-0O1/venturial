@@ -4,7 +4,6 @@ import json
 from bpy.app.handlers import persistent
 from bpy.types import Operator
 from bpy_extras.io_utils import ExportHelper
-from venturial.models.snappyhexmesh.snappydict_writer import write_snappydict
 
 class snappyhexmesh_menu:
     def layout(self, tools, context):
@@ -45,12 +44,6 @@ class snappyhexmesh_menu:
         col_button = row.column(align=True)
         col_button.operator("vnt.create_new_geometry", text="", icon="ADD")
         col_button.operator("vnt.delete_geometry", text="", icon="REMOVE")
-        #----------------------------------------------------------------------------------------------
-
-        # Temporary button for testing dictionary generation
-        #----------------------------------------------------------------------------------------------
-        row = tools.row(align=True)
-        row.operator("vnt.generate_snappydict", text="Generate snappyHexMeshDict")
         #----------------------------------------------------------------------------------------------
 
 class VNT_OT_create_new_geometry(Operator):
@@ -170,42 +163,6 @@ class VNT_OT_delete_geometry(Operator):
         cs.geometry_items_index = min(index, len(cs.geometry_items) - 1)
         self.report({'INFO'}, f"Deleted geometry: {geom_name}")
         return {'FINISHED'}
-
-class VNT_OT_generate_snappydict(Operator):
-    """Generate snappyHexMeshDict using UI data"""
-    bl_idname = "vnt.generate_snappydict"
-    bl_label = "Generate snappyHexMeshDict"
-
-    def execute(self, context):
-        data = {
-            "castellatedMesh": context.scene.castellatedMesh,
-            "snap": context.scene.snap,
-            "addLayers": context.scene.addLayers,
-            "mergeTolerance": "1e-06"
-        }
-        geom = {}
-        for item in context.scene.geometry_items:
-            gtype = getattr(item, "geometry_type", "triSurfaceMesh")
-            if gtype == "searchableBox":
-                geom["box"] = {
-                    "type": "searchableBox",
-                    "min": f"({item.min_x} {item.min_y} {item.min_z})",
-                    "max": f"({item.max_x} {item.max_y} {item.max_z})"
-                }
-            elif gtype == "searchableSphere":
-                geom["sphere"] = {
-                    "type": "searchableSphere",
-                    "centre": f"({item.centre_x} {item.centre_y} {item.centre_z})",
-                    "radius": item.radius
-                }
-            else:
-                geom[item.name] = {
-                    "type": "triSurfaceMesh",
-                    "name": item.name
-                }
-        data["geometry"] = geom
-        json_str = json.dumps(data)
-        print(json_str)
 
 class VNT_OT_export_stl_geometry(Operator, ExportHelper):
     bl_idname = "vnt.export_stl_geometry"

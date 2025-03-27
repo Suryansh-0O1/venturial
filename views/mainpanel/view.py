@@ -15,6 +15,28 @@ import blf
 
 import time, bpy
 
+def get_mainpanel_categories(self, context):
+    tool = context.scene.meshing_tool
+    if tool == "SnappyHexMesh":
+        return [
+            ("Explore", "Explore", ""),
+            ("Geometry", "Geometry", ""),
+            ("Castellated", "Castellated", ""),
+            ("Snap", "Snap", ""),
+            ("LayerControl", "Layer Control", ""),
+            ("MeshQuality", "Mesh Quality", ""),
+            ("Dictionary", "Dictionary", ""),
+        ]
+    else:
+        return [
+            ("Explore", "Explore", ""),
+            ("Geometry", "Geometry", ""),
+            ("Edges", "Edges", ""),
+            ("Boundary", "Boundary", ""),
+            ("Visualize", "Visualize", ""),
+            ("Run", "Run", ""),
+        ]
+
 class layout_controller:
     """Controller class for defining and designating layout callbacks"""
     def __init__(self, type):
@@ -30,8 +52,7 @@ class layout_controller:
     def output(self, layout, context):
         layout = layout.box()
         layout.separator(factor=0.05)
-        
-        getattr(self, self.callback[self.type])(layout, context)
+        getattr(self, self.callback.get(self.type, "VNT_ST_explorer"))(layout, context)
         
     def VNT_ST_explorer(self, layout, context):
         cs = context.scene
@@ -87,47 +108,58 @@ class layout_controller:
 
         if cs.current_tool_text == "BlockMesh":
             getattr(blockmesh_menu(), "layout")(tools, context)
-
         else:
-            getattr(snappyhexmesh_menu(), "layout")(tools, context)
-
-
-        # THis feature is to be implemented later down the line
-        # projects = layout.box()
-        # r7 = projects.row() 
-
-        # This shabby piece of code is similar to the draw method of top navigation bar, but relatively better.
-        # This creates a horizontal tabs list of active projects (cases) dynamically. 
-        # for i in range(0, len(cs.mfile_item)):
-        #     x = r7.column(align=True).row(align=True)
-            
-        #     x.operator("VNT_OT_active_project_indicator", 
-        #                text=cs.mfile_item[i].ITEM_name, 
-        #                emboss = True if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier else False).active_file_id = cs.mfile_item[i].ITEM_identifier
-            
-        #     x.operator("vnt.deactivate_mesh_file_item",
-        #                text="",
-        #                emboss = True if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier else False,
-        #                icon="PANEL_CLOSE").dump_file_id = cs.mfile_item[i].ITEM_identifier
-            
-        #     x.scale_y = 1.7 if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier else 1.9
-        #     x.scale_x = 0.9730 + len(cs.mfile_item)*(0.009 if len(cs.mfile_item) == 3 else 0.01) if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier else 1.0
+            # For SnappyHexMesh, show geometry UI unless we're on a specific sub-tab
+            tab = cs.mainpanel_categories
+            if tab == "Geometry":
+                # This is the main Geometry tab for SnappyHexMesh
+                getattr(snappyhexmesh_menu(), "layout")(tools, context)
+            elif tab in ["SnappyHexMesh", "Castellated", "Snap", "LayerControl", "MeshQuality", "Dictionary"]:
+                # These are specialized sub-tabs
+                if tab == "SnappyHexMesh":
+                    self.VNT_ST_snappy_basic(layout, context)
+                elif tab == "Castellated":
+                    self.VNT_ST_castellated(layout, context)
+                elif tab == "Snap":
+                    self.VNT_ST_snap(layout, context)
+                elif tab == "LayerControl":
+                    self.VNT_ST_layercontrol(layout, context)
+                elif tab == "MeshQuality":
+                    self.VNT_ST_meshquality(layout, context)
+                elif tab == "Dictionary":
+                    self.VNT_ST_dictionary(layout, context)
     
-        # r7.ui_units_y = 0.00001
-            
-        # r8 = projects.row(align=True)
-        # for i in range(0, len(cs.mfile_item)):
-        #     y = r8.column(align=True)
-        #     if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier:
-        #         y.label(text="") # Active tab in the view
-        #     else:
-        #         y.scale_y = 0.8
-        #         y.box().label(text="") # Passive tabs in the view
+    def VNT_ST_snappy_basic(self, layout, context):
+        box = layout.box()
+        box.label(text="snappyHexMesh: STL & Basic Settings")
+        # ...existing code for STL file section...
+        box.operator("vnt.stl_browse", text="Browse STL")
+    
+    def VNT_ST_castellated(self, layout, context):
+        box = layout.box()
+        box.label(text="Castellated Mesh")
+        box.prop(context.scene, "castellatedMesh", text="Enable Castellated Mesh")
+    
+    def VNT_ST_snap(self, layout, context):
+        box = layout.box()
+        box.label(text="Snap")
+        box.prop(context.scene, "snap", text="Enable Snap")
+    
+    def VNT_ST_layercontrol(self, layout, context):
+        box = layout.box()
+        box.label(text="Layer Control")
+        box.prop(context.scene, "addLayers", text="Enable Add Layers")
+    
+    def VNT_ST_meshquality(self, layout, context):
+        box = layout.box()
+        box.label(text="Mesh Quality")
+        box.label(text="Mesh quality settings go here.")
+    
+    def VNT_ST_dictionary(self, layout, context):
+        box = layout.box()
+        box.label(text="Dictionary")
+        box.operator("vnt.export_stl_geometry", text="Export STL Geometry")
         
-        # r10 = projects.row()
-        # r10.scale_y = 1.4
-        # r10.template_list("CUSTOM_UL_blocks", "", cs, "bcustom", cs, "bcustom_index", rows=2)
-                   
     def VNT_ST_visualize(self, layout, context):
         outline = layout.box()
         

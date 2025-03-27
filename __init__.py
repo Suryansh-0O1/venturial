@@ -62,12 +62,12 @@ from venturial.views.mainpanel.meshing_tools.blockmesh import VNT_PT_cell_locati
 from venturial.views.mainpanel.meshing_tools.snappyhexmesh import (
     VNT_OT_create_new_geometry,
     VNT_OT_delete_geometry,
-    VNT_OT_generate_snappydict,
     VNT_OT_export_stl_geometry,
 )
 from venturial.views.mainpanel.view import (
     VNT_OT_active_project_indicator,
     VNT_OT_list_category,
+    get_mainpanel_categories,
 )
 from venturial.views.mainpanel.tutorials import VNT_PT_filter_tutorials
 from venturial.views.mainpanel.recents import VNT_PT_filter_recents
@@ -83,7 +83,6 @@ from venturial.lib.preferences_properties import VNT_user_preferences_collection
 from venturial.lib.global_properties import VNT_global_properties_collection, VNT_global_properties_collection_edge_verts, CUSTOM_LocProps
 
 from venturial.models.edges_panel_operators import *
-
 
 classes = (
     VNT_user_preferences_collection,
@@ -185,9 +184,7 @@ classes = (
     VNT_OT_remove_edge,
     VNT_OT_remove_vert,
     VNT_OT_create_new_geometry,
-    VNT_OT_generate_snappydict,
 )
-
 
 def register():
 
@@ -250,16 +247,8 @@ def register():
     )
 
     bpy.types.Scene.mainpanel_categories = EnumProperty(
-        items=[
-            ("Explore", "Explore", ""),
-            ("Geometry", "Geometry", ""),
-            ("Edges", "Edges", ""),
-            #  ('Step Controls', 'Steps Controls', ''),
-            ("Boundary", "Boundary", ""),
-            ("Visualize", "Visualize", ""),
-            ("Run", "Run", ""),
-        ],
-        default="Explore",
+        items=get_mainpanel_categories,
+        default=0
     )
 
     bpy.types.Scene.cellShapes = EnumProperty(
@@ -541,9 +530,11 @@ def register():
 
 
 def unregister():
-
     for cls in reversed(classes):
-        unregister_class(cls)
+        try:
+            unregister_class(cls)
+        except Exception as e:
+            print(f"Error unregistering {cls.__name__}: {e}")
 
     unregister_custom_icon(
         "venturial_logo", "/venturial/icons/custom_icons/venturial_logo.png"
@@ -564,59 +555,30 @@ def unregister():
         "file-browser-2", "/venturial/icons/custom_icons/file-browser-2.png"
     )
 
-
-    del bpy.types.Scene.stl_file
-    del bpy.types.Scene.stl_file_name
-    del bpy.types.Scene.ui_category
-    del bpy.types.Scene.tool_type
-    del bpy.types.Scene.prompt_meshing_tool
-    del bpy.types.Scene.scene_blockmesh_panel_categories
-    del bpy.types.Scene.test_enum
-    del bpy.types.Scene.cellShapes
-    del bpy.types.Scene.cellShape_units
-    del bpy.types.Scene.mfile_item_ptr
-    del bpy.types.Scene.mfile_item
-    del bpy.types.Scene.mfile_item_index
-    del bpy.types.Scene.mesh_dict_name
-    del bpy.types.Scene.mesh_dict_path
-    del bpy.types.Scene.row_en
-    del bpy.types.Scene.cell_x
-    del bpy.types.Scene.cell_y
-    del bpy.types.Scene.cell_z
-    del bpy.types.Scene.ctm
-    del bpy.types.Scene.transform
-    del bpy.types.Scene.transformation_methods
-    del bpy.types.Scene.snapping
-    del bpy.types.Scene.snapping_methods
-    del bpy.types.Scene.simblk
-    del bpy.types.Scene.simblk_index
-    del bpy.types.Scene.bcustom
-    del bpy.types.Scene.bcustom_index
-    del bpy.types.Scene.vcustom
-    del bpy.types.Scene.vcustom_index
-    del bpy.types.Scene.fcustom
-    del bpy.types.Scene.fcustom_index
-    del bpy.types.Scene.ecustom
-    del bpy.types.Scene.ecustom_index
-    del bpy.types.Scene.vert_index
-    del bpy.types.Scene.cnt
-    del bpy.types.Scene.mode
-    del bpy.types.Scene.bdclist
-    del bpy.types.Scene.face_name
-    del bpy.types.Scene.facedes
-    del bpy.types.Scene.acustom
-    del bpy.types.Scene.acustom_index
-    del bpy.types.Scene.pcustom
-    del bpy.types.Scene.pcustom_index
-    del bpy.types.Scene.scustom
-    del bpy.types.Scene.scustom_index
-    del bpy.types.Scene.bscustom
-    del bpy.types.Scene.bscustom_index
-    del bpy.types.Scene.ipcnt
-    del bpy.types.Scene.edgelist
-    del bpy.types.Scene.face_sel_mode
-    del bpy.types.Scene.geometry_items
-    del bpy.types.Scene.geometry_items_index
-    del bpy.types.Scene.castellatedMesh
-    del bpy.types.Scene.snap
-    del bpy.types.Scene.addLayers
+    property_names = [
+        "stl_file", "stl_file_name", "ui_category", "tool_type", "prompt_meshing_tool",
+        "scene_blockmesh_panel_categories", "test_enum", "cellShapes", "cellShape_units",
+        "mfile_item_ptr", "mfile_item", "mfile_item_index", "mesh_dict_name",
+        "mesh_dict_path", "row_en", "cell_x", "cell_y", "cell_z", "ctm", "transform",
+        "transformation_methods", "snapping", "snapping_methods", "simblk", "simblk_index",
+        "bcustom", "bcustom_index", "vcustom", "vcustom_index", "fcustom", "fcustom_index",
+        "ecustom", "ecustom_index", "vert_index", "cnt", "mode", "bdclist", "face_name",
+        "facedes", "acustom", "acustom_index", "pcustom", "pcustom_index", "scustom",
+        "scustom_index", "bscustom", "bscustom_index", "ipcnt", "edgelist", "face_sel_mode",
+        "geometry_items", "geometry_items_index", "castellatedMesh", "snap", "addLayers"
+    ]
+    
+    for prop in property_names:
+        if hasattr(bpy.types.Scene, prop):
+            try:
+                delattr(bpy.types.Scene, prop)
+            except Exception as e:
+                print(f"Failed to delete property {prop}: {e}")
+    
+    try:
+        if add_tutorials_to_scene in bpy.app.handlers.load_factory_startup_post:
+            bpy.app.handlers.load_factory_startup_post.remove(add_tutorials_to_scene)
+        if add_recents_to_scene in bpy.app.handlers.load_factory_startup_post:
+            bpy.app.handlers.load_factory_startup_post.remove(add_recents_to_scene)
+    except Exception as e:
+        print(f"Error removing handlers: {e}")

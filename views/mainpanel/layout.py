@@ -1,21 +1,18 @@
+from venturial.views.mainpanel.view import layout_controller, get_mainpanel_categories
 from venturial.models.mainpanel_sublayout_operators import *
-from venturial.views.mainpanel.view import layout_controller
 
 class mainPanel:
     """Class that defines the layout of the main panel"""
     
     def draw(self, layout, context):
         """Draws the layout of the main panel"""
-        
         cs = context.scene
 
         r1 = layout.row(align=True)
         r1.prop(cs, "mainpanel_categories", expand=True)
 
-        # var = "Edges" if cs.current_tool_text == "BlockMesh" else "Step Controls"
-        # getattr(self, "draw_tool_navigator")(cs.mainpanel_categories, var, layout)
-
-        getattr(layout_controller(cs.mainpanel_categories), "output")(layout, context)
+        cat_string = cs.mainpanel_categories
+        getattr(layout_controller(cat_string), "output")(layout, context)
         
     #TODO: Fix this later. Need to change options dynamically for blockMesh and snappyHexMesh
     def draw_tool_navigator(self, x, var, layout):
