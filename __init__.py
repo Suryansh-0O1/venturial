@@ -59,6 +59,12 @@ from venturial.views.schemas.UIList_schemas import *
 from venturial.views.user_mode_view import VNT_PT_usermodeview
 from venturial.views.header.view import *
 from venturial.views.mainpanel.meshing_tools.blockmesh import VNT_PT_cell_location
+from venturial.views.mainpanel.meshing_tools.snappyhexmesh import (
+    VNT_OT_create_new_geometry,
+    VNT_OT_delete_geometry,
+    VNT_OT_generate_snappydict,
+    VNT_OT_export_stl_geometry,
+)
 from venturial.views.mainpanel.view import (
     VNT_OT_active_project_indicator,
     VNT_OT_list_category,
@@ -78,6 +84,7 @@ from venturial.lib.global_properties import VNT_global_properties_collection, VN
 
 from venturial.models.edges_panel_operators import *
 
+
 classes = (
     VNT_user_preferences_collection,
     VNT_OT_save_preferences,
@@ -92,6 +99,7 @@ classes = (
     VNT_OT_deactivate_mesh_file_item,
     VNT_OT_stl_browse,
     VNT_OT_import_stl_geometry,
+    VNT_OT_export_stl_geometry,
     VNT_OT_dev_mode,
     VNT_OT_dev_tools,
     VNT_OT_user_general_settings,
@@ -113,6 +121,7 @@ classes = (
     VNT_OT_release_notes,
     VNT_PT_usermodeview,
     VNT_OT_mainpanel_layout,
+    VNT_OT_delete_geometry,
     fileitemproperties,
     recent_item_properties,
     tutorialitemproperties,
@@ -175,6 +184,8 @@ classes = (
     VNT_OT_new_vert,
     VNT_OT_remove_edge,
     VNT_OT_remove_vert,
+    VNT_OT_create_new_geometry,
+    VNT_OT_generate_snappydict,
 )
 
 
@@ -202,6 +213,7 @@ def register():
         register_class(cls)
 
     bpy.types.Scene.stl_file = StringProperty(name="STL File", default="")
+    bpy.types.Scene.stl_file_name = StringProperty(name="STL File Name", default="")
     bpy.types.Scene.search_tuts = StringProperty(default="Search Tutorials")
     bpy.types.Scene.search_recents = StringProperty(default="Search Recents")
     bpy.types.Scene.edit_dict_name = BoolProperty(default=True)
@@ -517,6 +529,13 @@ def register():
         items=get_active_projects,
     )
 
+    bpy.types.Scene.geometry_items = CollectionProperty(type=fileitemproperties)  # Reusing existing class
+    bpy.types.Scene.geometry_items_index = IntProperty(name="Geometry Items Index", default=0)
+
+    bpy.types.Scene.castellatedMesh = BoolProperty(name="Castellated Mesh", default=False)
+    bpy.types.Scene.snap = BoolProperty(name="Snap", default=False)
+    bpy.types.Scene.addLayers = BoolProperty(name="Add Layers", default=False)
+
     bpy.app.handlers.load_factory_startup_post.append(add_tutorials_to_scene)
     bpy.app.handlers.load_factory_startup_post.append(add_recents_to_scene)
 
@@ -547,6 +566,7 @@ def unregister():
 
 
     del bpy.types.Scene.stl_file
+    del bpy.types.Scene.stl_file_name
     del bpy.types.Scene.ui_category
     del bpy.types.Scene.tool_type
     del bpy.types.Scene.prompt_meshing_tool
@@ -595,3 +615,8 @@ def unregister():
     del bpy.types.Scene.ipcnt
     del bpy.types.Scene.edgelist
     del bpy.types.Scene.face_sel_mode
+    del bpy.types.Scene.geometry_items
+    del bpy.types.Scene.geometry_items_index
+    del bpy.types.Scene.castellatedMesh
+    del bpy.types.Scene.snap
+    del bpy.types.Scene.addLayers

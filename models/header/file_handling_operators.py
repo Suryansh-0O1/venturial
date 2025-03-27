@@ -351,7 +351,6 @@ class VNT_OT_deactivate_mesh_file_item(Operator):
         return{'FINISHED'}
 
 
-# Operator: Browse for STL file to set file location only.
 class VNT_OT_stl_browse(bpy.types.Operator):
     bl_idname = "vnt.stl_browse"
     bl_label = "Browse STL File"
@@ -360,13 +359,13 @@ class VNT_OT_stl_browse(bpy.types.Operator):
     
     def execute(self, context):
         context.scene.stl_file = self.filepath
+        context.scene.stl_file_name = os.path.basename(self.filepath)
         return {'FINISHED'}
     
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
-# Operator: Import the STL geometry using the path provided in the text box.
 class VNT_OT_import_stl_geometry(bpy.types.Operator):
     bl_idname = "vnt.import_stl_geometry"
     bl_label = "Import STL Geometry"
