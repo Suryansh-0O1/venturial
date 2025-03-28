@@ -78,6 +78,10 @@ from venturial.lib.global_properties import VNT_global_properties_collection, VN
 
 from venturial.models.edges_panel_operators import *
 
+
+
+
+
 classes = (
     VNT_OT_select_edge,
     VNT_ecustom_edge_obj,
@@ -367,7 +371,7 @@ def register():
 
     bpy.types.Scene.ecustom_edge_obj = CollectionProperty(type=VNT_ecustom_edge_obj)
     bpy.types.Scene.ecustom = CollectionProperty(type=VNT_global_properties_collection_edge_verts) # for edges
-    bpy.types.Scene.ecustom_index = IntProperty(update=update_select_edge)
+    bpy.types.Scene.ecustom_index = IntProperty(update=update_selected_edge)
     bpy.types.Scene.last_ecustom_index = IntProperty(default=-1)
 
     bpy.types.Scene.vert_index = IntProperty(name="Vertex Index", default=0)
