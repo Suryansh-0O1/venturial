@@ -10,16 +10,16 @@ from venturial.views.mainpanel.recents import recents_menu
 from venturial.views.mainpanel.meshing_tools.blockmesh import blockmesh_menu
 from venturial.views.mainpanel.meshing_tools.snappyhexmesh import snappyhexmesh_menu
 from venturial.models.edges_panel_operators import *
+from venturial.models.snappyhexmesh.castellated_operators import *
 
 import blf
-
 import time, bpy
 
 def get_mainpanel_categories(self, context):
     tool = context.scene.meshing_tool
     if tool == "SnappyHexMesh":
         return [
-            ("Explore", "Explore", ""),
+            # ("Explore", "Explore", ""),  # Removed to hide Explore in castellation tabs
             ("Geometry", "Geometry", ""),
             ("Castellated", "Castellated", ""),
             ("Snap", "Snap", ""),
@@ -47,7 +47,13 @@ class layout_controller:
                          "Edges": "VNT_ST_edges",
                          "Step Controls": "VNT_ST_step_controls",
                          "Run": "VNT_ST_run",
-                         "Boundary": "VNT_ST_boundary"}
+                         "Boundary": "VNT_ST_boundary",
+                         # SnappyHexMesh tabs
+                         "Castellated": "VNT_ST_snappyhexmesh",
+                         "Snap": "VNT_ST_snappyhexmesh",
+                         "LayerControl": "VNT_ST_snappyhexmesh",
+                         "MeshQuality": "VNT_ST_snappyhexmesh",
+                         "Dictionary": "VNT_ST_snappyhexmesh"}
         
     def output(self, layout, context):
         layout = layout.box()
@@ -109,57 +115,8 @@ class layout_controller:
         if cs.current_tool_text == "BlockMesh":
             getattr(blockmesh_menu(), "layout")(tools, context)
         else:
-            # For SnappyHexMesh, show geometry UI unless we're on a specific sub-tab
-            tab = cs.mainpanel_categories
-            if tab == "Geometry":
-                # This is the main Geometry tab for SnappyHexMesh
-                getattr(snappyhexmesh_menu(), "layout")(tools, context)
-            elif tab in ["SnappyHexMesh", "Castellated", "Snap", "LayerControl", "MeshQuality", "Dictionary"]:
-                # These are specialized sub-tabs
-                if tab == "SnappyHexMesh":
-                    self.VNT_ST_snappy_basic(layout, context)
-                elif tab == "Castellated":
-                    self.VNT_ST_castellated(layout, context)
-                elif tab == "Snap":
-                    self.VNT_ST_snap(layout, context)
-                elif tab == "LayerControl":
-                    self.VNT_ST_layercontrol(layout, context)
-                elif tab == "MeshQuality":
-                    self.VNT_ST_meshquality(layout, context)
-                elif tab == "Dictionary":
-                    self.VNT_ST_dictionary(layout, context)
+            getattr(snappyhexmesh_menu(), "layout")(tools, context)
     
-    def VNT_ST_snappy_basic(self, layout, context):
-        box = layout.box()
-        box.label(text="snappyHexMesh: STL & Basic Settings")
-        # ...existing code for STL file section...
-        box.operator("vnt.stl_browse", text="Browse STL")
-    
-    def VNT_ST_castellated(self, layout, context):
-        box = layout.box()
-        box.label(text="Castellated Mesh")
-        box.prop(context.scene, "castellatedMesh", text="Enable Castellated Mesh")
-    
-    def VNT_ST_snap(self, layout, context):
-        box = layout.box()
-        box.label(text="Snap")
-        box.prop(context.scene, "snap", text="Enable Snap")
-    
-    def VNT_ST_layercontrol(self, layout, context):
-        box = layout.box()
-        box.label(text="Layer Control")
-        box.prop(context.scene, "addLayers", text="Enable Add Layers")
-    
-    def VNT_ST_meshquality(self, layout, context):
-        box = layout.box()
-        box.label(text="Mesh Quality")
-        box.label(text="Mesh quality settings go here.")
-    
-    def VNT_ST_dictionary(self, layout, context):
-        box = layout.box()
-        box.label(text="Dictionary")
-        box.operator("vnt.export_stl_geometry", text="Export STL Geometry")
-        
     def VNT_ST_visualize(self, layout, context):
         outline = layout.box()
         
@@ -395,6 +352,12 @@ class layout_controller:
         row.alert = True
         row.operator(VNT_OT_cleardictfileonly.bl_idname, icon="TRASH", text="Clear Blockmesh Dictionary")
         row.ui_units_y = 1.7
+
+    def VNT_ST_snappyhexmesh(self, layout, context):
+        """Handles all SnappyHexMesh-specific tabs"""
+        cs = context.scene
+        tools = layout.box()
+        getattr(snappyhexmesh_menu(), "layout")(tools, context)
 
 
 class VNT_OT_active_project_indicator(Operator):

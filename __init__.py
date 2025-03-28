@@ -63,6 +63,7 @@ from venturial.views.mainpanel.meshing_tools.snappyhexmesh import (
     VNT_OT_create_new_geometry,
     VNT_OT_delete_geometry,
     VNT_OT_export_stl_geometry,
+    VNT_OT_generate_snappyhex_dict, 
 )
 from venturial.views.mainpanel.view import (
     VNT_OT_active_project_indicator,
@@ -83,6 +84,42 @@ from venturial.lib.preferences_properties import VNT_user_preferences_collection
 from venturial.lib.global_properties import VNT_global_properties_collection, VNT_global_properties_collection_edge_verts, CUSTOM_LocProps
 
 from venturial.models.edges_panel_operators import *
+
+# Import castellated mesh classes directly
+from venturial.models.snappyhexmesh.castellated_operators import (
+    CastellatedFeature,
+    RefinementRegion,
+    PatchInfo,
+    RefinementSurfaceRegion,
+    RefinementSurface,
+    VNT_OT_add_feature,
+    VNT_OT_browse_feature_file,
+    VNT_OT_remove_feature,
+    VNT_OT_add_refinement_surface, 
+    VNT_OT_browse_surface_file,
+    VNT_OT_remove_refinement_surface,
+    VNT_OT_add_surface_region,
+    VNT_OT_remove_surface_region,
+    VNT_OT_add_refinement_region,
+    VNT_OT_remove_refinement_region,
+    CAST_UL_features_list,
+    CAST_UL_refinement_surfaces,
+    CAST_UL_refinement_regions
+)
+
+from venturial.models.snappyhexmesh.snap_operators import SnapControlsProperties
+from venturial.models.snappyhexmesh.layer_operators import (
+    LayerAdditionProperties, 
+    LayerPatchSettings,
+    VNT_OT_add_layer_patch,
+    VNT_OT_remove_layer_patch,
+    LAYER_UL_patches_list
+)
+from venturial.models.snappyhexmesh.mesh_quality_operators import (
+    MeshQualityProperties,
+    RelaxedMeshQualityProperties,
+    VNT_OT_select_mesh_quality_dict
+)
 
 classes = (
     VNT_user_preferences_collection,
@@ -171,7 +208,7 @@ classes = (
     VNT_OT_merge_faces,
     VNT_OT_merge_faces_delete,
     # VNT_OT_generate_edge,
-    # VNT_OT_edit_edge,
+    # VNT_OT_edit_edge, 
     # VNT_OT_destroy_edge,
     VNT_OT_more_tutorials_viewer,
     VNT_OT_tutorial_viewer,
@@ -184,6 +221,35 @@ classes = (
     VNT_OT_remove_edge,
     VNT_OT_remove_vert,
     VNT_OT_create_new_geometry,
+    # Add castellated mesh classes
+    CastellatedFeature,
+    RefinementRegion,
+    PatchInfo,
+    RefinementSurfaceRegion,
+    RefinementSurface,
+    VNT_OT_add_feature,
+    VNT_OT_browse_feature_file,
+    VNT_OT_remove_feature,
+    VNT_OT_add_refinement_surface,
+    VNT_OT_browse_surface_file,
+    VNT_OT_remove_refinement_surface,
+    VNT_OT_add_surface_region,
+    VNT_OT_remove_surface_region,
+    VNT_OT_add_refinement_region,
+    VNT_OT_remove_refinement_region,
+    CAST_UL_features_list,
+    CAST_UL_refinement_surfaces,
+    CAST_UL_refinement_regions,
+    SnapControlsProperties,
+    LayerAdditionProperties,
+    LayerPatchSettings,
+    VNT_OT_add_layer_patch,
+    VNT_OT_remove_layer_patch,
+    LAYER_UL_patches_list,
+    MeshQualityProperties,
+    RelaxedMeshQualityProperties,
+    VNT_OT_select_mesh_quality_dict,
+    VNT_OT_generate_snappyhex_dict,
 )
 
 def register():
@@ -525,6 +591,419 @@ def register():
     bpy.types.Scene.snap = BoolProperty(name="Snap", default=False)
     bpy.types.Scene.addLayers = BoolProperty(name="Add Layers", default=False)
 
+    bpy.types.Scene.maxLocalCells = IntProperty(
+        name="Max Local Cells",
+        description="Maximum local cells for castellated mesh",
+        default=100000,
+        min=1000
+    )
+    
+    bpy.types.Scene.maxGlobalCells = IntProperty(
+        name="Max Global Cells",
+        description="Maximum global cells for castellated mesh",
+        default=2000000,
+        min=1000
+    )
+    
+    bpy.types.Scene.minRefinementCells = IntProperty(
+        name="Min Refinement Cells",
+        description="Minimum cells to refine",
+        default=0,
+        min=0
+    )
+        
+    bpy.types.Scene.maxLoadUnbalance = FloatProperty(
+        name="Max Load Unbalance",
+        description="Maximum load unbalance factor",
+        default=0.1,
+        min=0.0,
+        max=1.0
+    )
+    
+    bpy.types.Scene.nCellsBetweenLevels = IntProperty(
+        name="Cells Between Levels",
+        description="Number of buffer cells between refinement levels",
+        default=1,
+        min=1
+    )
+    
+    bpy.types.Scene.resolveFeatureAngle = FloatProperty(
+        name="Resolve Feature Angle",
+        description="Angle for feature resolution",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.planarAngle = FloatProperty(
+        name="Planar Angle",
+        description="Angle for determining planar features",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.locationInMeshX = FloatProperty(
+        name="X",
+        description="X coordinate of location in mesh point",
+        default=5.0
+    )
+    
+    bpy.types.Scene.locationInMeshY = FloatProperty(
+        name="Y",
+        description="Y coordinate of location in mesh point",
+        default=0.28
+    )
+    
+    bpy.types.Scene.locationInMeshZ = FloatProperty(
+        name="Z",
+        description="Z coordinate of location in mesh point",
+        default=0.43
+    )
+    
+    bpy.types.Scene.allowFreeStandingZoneFaces = BoolProperty(
+        name="Allow Free Standing Zone Faces",
+        description="Allow free-standing zone faces",
+        default=True
+    )
+    
+    bpy.types.Scene.cast_features = CollectionProperty(
+        type=CastellatedFeature,
+        name="Features"
+    )
+    
+    bpy.types.Scene.cast_features_index = IntProperty(default=0)
+    
+    bpy.types.Scene.cast_refinement_surfaces = CollectionProperty(
+        type=RefinementSurface,
+        name="Refinement Surfaces"
+    )
+    
+    bpy.types.Scene.cast_refinement_surfaces_index = IntProperty(default=0)
+    
+    bpy.types.Scene.cast_refinement_regions = CollectionProperty(
+        type=RefinementRegion,
+        name="Refinement Regions"
+    )
+    
+    bpy.types.Scene.cast_refinement_regions_index = IntProperty(default=0)
+    
+    bpy.types.Scene.nSmoothPatch = IntProperty(
+        name="Smooth Patch Iterations",
+        description="Number of patch smoothing iterations before finding correspondence to surface",
+        default=3,
+        min=0
+    )
+    
+    bpy.types.Scene.tolerance = FloatProperty(
+        name="Tolerance",
+        description="Maximum relative distance for points to be attracted by surface",
+        default=2.0,
+        min=0.0
+    )
+    
+    bpy.types.Scene.nSolveIter = IntProperty(
+        name="Solve Iterations",
+        description="Number of mesh displacement relaxation iterations",
+        default=30,
+        min=0
+    )
+    
+    bpy.types.Scene.nRelaxIter = IntProperty(
+        name="Relax Iterations",
+        description="Maximum number of snapping relaxation iterations",
+        default=5,
+        min=0
+    )
+    
+    bpy.types.Scene.useFeatureSnap = BoolProperty(
+        name="Use Feature Snapping",
+        description="Enable feature edge snapping",
+        default=True
+    )
+    
+    bpy.types.Scene.nFeatureSnapIter = IntProperty(
+        name="Feature Snap Iterations",
+        description="Number of feature edge snapping iterations",
+        default=10,
+        min=0
+    )
+    
+    bpy.types.Scene.implicitFeatureSnap = BoolProperty(
+        name="Implicit Feature Snap",
+        description="Detect features by sampling the surface",
+        default=False
+    )
+    
+    bpy.types.Scene.explicitFeatureSnap = BoolProperty(
+        name="Explicit Feature Snap",
+        description="Use castellatedMeshControls features",
+        default=True
+    )
+    
+    bpy.types.Scene.multiRegionFeatureSnap = BoolProperty(
+        name="Multi-region Feature Snap",
+        description="Detect features between multiple surfaces",
+        default=False
+    )
+    
+    # Layer addition properties
+    bpy.types.Scene.relativeSizes = BoolProperty(
+        name="Relative Sizes",
+        description="Are thickness parameters relative to cell size or absolute",
+        default=True
+    )
+    
+    bpy.types.Scene.thickness_mode = EnumProperty(
+        name="Thickness Mode",
+        description="Method for specifying layer thickness",
+        items=[
+            ('expansion_final', "Expansion + Final Layer", "Use expansion ratio and final layer thickness"),
+            ('expansion_first', "Expansion + First Layer", "Use expansion ratio and first layer thickness"),
+            ('overall_first', "Overall + First Layer", "Use overall thickness and first layer thickness"),
+            ('overall_final', "Overall + Final Layer", "Use overall thickness and final layer thickness"),
+            ('overall_expansion', "Overall + Expansion", "Use overall thickness and expansion ratio")
+        ],
+        default='expansion_final'
+    )
+    
+    bpy.types.Scene.expansionRatio = FloatProperty(
+        name="Expansion Ratio",
+        description="Expansion factor for layer mesh",
+        default=1.0,
+        min=1.0,
+        max=10.0
+    )
+    
+    bpy.types.Scene.finalLayerThickness = FloatProperty(
+        name="Final Layer Thickness",
+        description="Thickness of layer furthest from wall",
+        default=0.3,
+        min=0.001
+    )
+    
+    bpy.types.Scene.firstLayerThickness = FloatProperty(
+        name="First Layer Thickness",
+        description="Thickness of layer next to wall",
+        default=0.3,
+        min=0.001
+    )
+    
+    bpy.types.Scene.overallThickness = FloatProperty(
+        name="Overall Thickness",
+        description="Total thickness of all layers",
+        default=0.5,
+        min=0.001
+    )
+    
+    bpy.types.Scene.minThickness = FloatProperty(
+        name="Minimum Thickness",
+        description="Minimum thickness of total layers",
+        default=0.25,
+        min=0.0
+    )
+    
+    bpy.types.Scene.featureAngle = FloatProperty(
+        name="Feature Angle",
+        description="Angle at which to not extrude surface",
+        default=130.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.nGrow = IntProperty(
+        name="Grow Layers",
+        description="Number of layers of connected faces to grow",
+        default=0,
+        min=0
+    )
+    
+    bpy.types.Scene.maxFaceThicknessRatio = FloatProperty(
+        name="Max Face Thickness Ratio",
+        description="Stop layer growth on highly warped cells",
+        default=0.5,
+        min=0.0,
+        max=1.0
+    )
+    
+    bpy.types.Scene.nSmoothSurfaceNormals = IntProperty(
+        name="Smooth Surface Normals",
+        description="Smoothing iterations for surface normals",
+        default=1,
+        min=0
+    )
+    
+    bpy.types.Scene.nSmoothThickness = IntProperty(
+        name="Smooth Thickness",
+        description="Iterations to smooth layer thickness",
+        default=10,
+        min=0
+    )
+    
+    bpy.types.Scene.minMedialAxisAngle = FloatProperty(
+        name="Min Medial Axis Angle",
+        description="Angle used to pick up medial axis points",
+        default=90.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.maxThicknessToMedialRatio = FloatProperty(
+        name="Max Thickness to Medial Ratio",
+        description="Reduce growth where thickness to medial distance is large",
+        default=0.3,
+        min=0.0,
+        max=1.0
+    )
+    
+    bpy.types.Scene.nSmoothNormals = IntProperty(
+        name="Smooth Normals",
+        description="Smoothing iterations for mesh movement direction",
+        default=3,
+        min=0
+    )
+    
+    bpy.types.Scene.slipFeatureAngle = FloatProperty(
+        name="Slip Feature Angle",
+        description="Angle above which mesh can slip at non-patched sides",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.layerRelaxIter = IntProperty(
+        name="Layer Relax Iterations",
+        description="Maximum snapping relaxation iterations",
+        default=5,
+        min=0
+    )
+    
+    bpy.types.Scene.nBufferCellsNoExtrude = IntProperty(
+        name="Buffer Cells No Extrude",
+        description="Buffer region for new layer terminations",
+        default=0,
+        min=0
+    )
+    
+    bpy.types.Scene.nLayerIter = IntProperty(
+        name="Layer Iterations",
+        description="Max number of layer addition iterations",
+        default=50,
+        min=1
+    )
+    
+    bpy.types.Scene.nRelaxedIter = IntProperty(
+        name="Relaxed Iterations",
+        description="Iterations after which relaxed mesh quality controls are used",
+        default=20,
+        min=0
+    )
+    
+    bpy.types.Scene.additionalReporting = BoolProperty(
+        name="Additional Reporting",
+        description="Report problematic face centers",
+        default=False
+    )
+    
+    bpy.types.Scene.layer_patches = CollectionProperty(
+        type=LayerPatchSettings,
+        name="Layer Patches"
+    )
+    
+    bpy.types.Scene.layer_patches_index = IntProperty(default=0)
+    
+    # Mesh quality properties
+    bpy.types.Scene.includeMeshQualityDict = BoolProperty(
+        name="Include Mesh Quality Dict",
+        description="Include external mesh quality dictionary file",
+        default=True
+    )
+    
+    bpy.types.Scene.meshQualityDictPath = StringProperty(
+        name="Mesh Quality Dict Path",
+        description="Path to external mesh quality dictionary file",
+        default="meshQualityDict"
+    )
+    
+    bpy.types.Scene.relaxedMaxNonOrtho = FloatProperty(
+        name="Relaxed Max Non-Orthogonality",
+        description="Maximum non-orthogonality allowed in relaxed mode",
+        default=75.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.nSmoothScale = IntProperty(
+        name="Smooth Scale Iterations",
+        description="Number of error distribution iterations",
+        default=4,
+        min=0
+    )
+    
+    bpy.types.Scene.errorReduction = FloatProperty(
+        name="Error Reduction",
+        description="Amount to scale back displacement at error points",
+        default=0.75,
+        min=0.0,
+        max=1.0
+    )
+    
+    # Basic mesh quality settings if not using external file
+    bpy.types.Scene.maxNonOrtho = FloatProperty(
+        name="Max Non-Orthogonality",
+        description="Maximum non-orthogonality allowed",
+        default=65.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.maxBoundarySkewness = FloatProperty(
+        name="Max Boundary Skewness",
+        description="Maximum boundary face skewness allowed",
+        default=20.0,
+        min=0.0
+    )
+    
+    bpy.types.Scene.maxInternalSkewness = FloatProperty(
+        name="Max Internal Skewness",
+        description="Maximum internal face skewness allowed",
+        default=4.0,
+        min=0.0
+    )
+    
+    bpy.types.Scene.maxConcave = FloatProperty(
+        name="Max Concaveness",
+        description="Maximum concaveness allowed",
+        default=80.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.minFlatness = FloatProperty(
+        name="Min Flatness",
+        description="Ratio of minimum projected area to actual area",
+        default=0.5,
+        min=0.0,
+        max=1.0
+    )
+    
+    bpy.types.Scene.minVol = FloatProperty(
+        name="Min Volume",
+        description="Minimum cell volume",
+        default=1e-13,
+        precision=15
+    )
+    
+    bpy.types.Scene.minTetQuality = FloatProperty(
+        name="Min Tet Quality",
+        description="Minimum quality of tetrahedral cells",
+        default=1e-30,
+        min=0.0,
+        max=1.0
+    )
+    
+    bpy.types.Scene.snappy_dict_preview = StringProperty(default="")
+    
     bpy.app.handlers.load_factory_startup_post.append(add_tutorials_to_scene)
     bpy.app.handlers.load_factory_startup_post.append(add_recents_to_scene)
 
@@ -565,7 +1044,26 @@ def unregister():
         "ecustom", "ecustom_index", "vert_index", "cnt", "mode", "bdclist", "face_name",
         "facedes", "acustom", "acustom_index", "pcustom", "pcustom_index", "scustom",
         "scustom_index", "bscustom", "bscustom_index", "ipcnt", "edgelist", "face_sel_mode",
-        "geometry_items", "geometry_items_index", "castellatedMesh", "snap", "addLayers"
+        "geometry_items", "geometry_items_index", "castellatedMesh", "snap", "addLayers",
+        "maxLocalCells", "maxGlobalCells", "minRefinementCells", "maxLoadUnbalance",
+        "nCellsBetweenLevels", "resolveFeatureAngle", "planarAngle",
+        "locationInMeshX", "locationInMeshY", "locationInMeshZ",
+        "allowFreeStandingZoneFaces", "cast_features", "cast_features_index",
+        "cast_refinement_surfaces", "cast_refinement_surfaces_index",
+        "cast_refinement_regions", "cast_refinement_regions_index",
+        "nSmoothPatch", "tolerance", "nSolveIter", "nRelaxIter", 
+        "useFeatureSnap", "nFeatureSnapIter", "implicitFeatureSnap", 
+        "explicitFeatureSnap", "multiRegionFeatureSnap",
+        "relativeSizes", "thickness_mode", "expansionRatio", "finalLayerThickness",
+        "firstLayerThickness", "overallThickness", "minThickness", "featureAngle",
+        "nGrow", "maxFaceThicknessRatio", "nSmoothSurfaceNormals", "nSmoothThickness",
+        "minMedialAxisAngle", "maxThicknessToMedialRatio", "nSmoothNormals",
+        "slipFeatureAngle", "layerRelaxIter", "nBufferCellsNoExtrude", "nLayerIter",
+        "nRelaxedIter", "additionalReporting", "layer_patches", "layer_patches_index",
+        "includeMeshQualityDict", "meshQualityDictPath", "relaxedMaxNonOrtho",
+        "nSmoothScale", "errorReduction", "maxNonOrtho", "maxBoundarySkewness",
+        "maxInternalSkewness", "maxConcave", "minFlatness", "minVol", "minTetQuality",
+        "snappy_dict_preview"
     ]
     
     for prop in property_names:
