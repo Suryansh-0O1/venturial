@@ -580,6 +580,8 @@ def unregister():
     del bpy.types.Scene.fcustom_index
     del bpy.types.Scene.ecustom
     del bpy.types.Scene.ecustom_index
+    del bpy.types.Scene.ecustom_edge_obj
+    del bpy.types.Scene.last_ecustom_index
     del bpy.types.Scene.vert_index
     del bpy.types.Scene.cnt
     del bpy.types.Scene.mode
