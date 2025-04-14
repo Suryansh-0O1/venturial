@@ -226,6 +226,9 @@ class VNT_OT_new_vert(Operator):
 
         for i in range(3):
             coord[i] = (x[i] + y[i])/1.5
+
+            if i==2:
+                coord[i] = (x[i] + y[i])/2
         
         self.curr_edge.vert_collection.add()
         self.curr_edge.vert_collection[0].vert_loc=coord
