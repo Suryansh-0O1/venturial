@@ -79,9 +79,6 @@ from venturial.lib.global_properties import VNT_global_properties_collection, VN
 from venturial.models.edges_panel_operators import *
 
 
-
-
-
 classes = (
     VNT_OT_select_edge,
     VNT_ecustom_edge_obj,
