@@ -11,6 +11,7 @@ bl_info = {
 
 import bpy, bmesh, os
 import bpy.utils.previews
+from .dependencies import install_dependencies
 
 from bpy.utils import register_class, unregister_class
 
@@ -78,9 +79,16 @@ from venturial.lib.global_properties import VNT_global_properties_collection, VN
 
 from venturial.models.edges_panel_operators import *
 
+Ven_node_enabled = False
+try:
+    if install_dependencies():
+        Ven_node_enabled = True
+except Exception as e:
+    print("ERROR: Dependency installation failed.")
+    Ven_node_enabled = False
 
-
-
+if Ven_node_enabled:
+    from .models import venturial_nodes
 
 classes = (
     VNT_OT_select_edge,
@@ -181,8 +189,10 @@ classes = (
     VNT_OT_remove_vert,
 )
 
-
 def register():
+    print("--- Registering Venturial Nodes Module ---")
+    # 1. Install dependencies (must run before imports that depend on them)
+    
 
     register_custom_icon(
         "venturial_logo", "/venturial/icons/custom_icons/venturial_logo.png"
@@ -521,11 +531,31 @@ def register():
         items=get_active_projects,
     )
 
+    # Register venturial_nodes
+    try:
+        venturial_nodes.register()
+        print("Venturial Nodes module registered successfully.")
+    except Exception as e:
+        print(f"Error registering Venturial Nodes module: {e}")
+
+
+
     bpy.app.handlers.load_factory_startup_post.append(add_tutorials_to_scene)
     bpy.app.handlers.load_factory_startup_post.append(add_recents_to_scene)
 
-
 def unregister():
+
+
+
+    # Unregister venturial_nodes first (reverse order of registration)
+    try:
+        venturial_nodes.unregister()
+        print("Venturial Nodes module unregistered successfully.")
+    except Exception as e:
+        print(f"Error unregistering Venturial Nodes module: {e}")
+
+
+
 
     for cls in reversed(classes):
         unregister_class(cls)

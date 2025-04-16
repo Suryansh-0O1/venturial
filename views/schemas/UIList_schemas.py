@@ -112,7 +112,6 @@ class CUSTOM_UL_verts(UIList):
         r2split = r2.split(factor = 0.3)
         r2c1 = r2split.column()
         r2c2 = r2split.column()
-        
         r2c1.prop(item, "vertindex", text="", emboss=False, translate=False)
         r2c2.prop(item, "name", text="", emboss=False, translate=False)
         
