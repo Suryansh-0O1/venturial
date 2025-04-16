@@ -21,8 +21,7 @@ def update_selected_edge(self, context):
     except Exception as e:
         print(f"Error updating selected edge: {e}")
 
-a = [None, ]
-verts = [[]]
+_draw_data_global = {}
 
 def get_edge_draw_data():
     """
@@ -30,10 +29,10 @@ def get_edge_draw_data():
     This dictionary is attached to the scene and reinitialized on file load.
     """
     scn = bpy.context.scene
-    if "_edge_draw_data" not in scn:
-        # Initialize with empty lists for draw handler IDs and vertex storage.
-        scn["_edge_draw_data"] = {"draw_handlers": [], "verts": []}
-    return scn["_edge_draw_data"]
+    key = scn.as_pointer()  # unique identifier for the scene
+    if key not in _draw_data_global:
+        _draw_data_global[key] = {"draw_handlers": [], "verts": []}
+    return _draw_data_global[key]
 
 def sync(self):
     try:
