@@ -112,6 +112,7 @@ class VNT_OT_New_Boundary(Operator):
                             item.face_des = scn.face_name.facename
                             item.face_clr = clr
                             item.face_type = scn.bdclist
+                            item.object_name = obj.name
                             # bpy.ops.object.material_slot_add()
                             mat_clr = bpy.data.materials.new("clr")
                             mat_clr.diffuse_color = clr
@@ -439,11 +440,77 @@ class VNT_OT_merge_faces(Operator):
         if cs.faceList_master == cs.faceList_slave:
             self.report({'ERROR'}, "Master and Slave faces cannot be same")
             return {'CANCELLED'}
-        else: 
-            item = cs.fmcustom.add()
-            item.master_face = cs.faceList_master
-            item.slave_face = cs.faceList_slave
         
+        master_item = next((f for f in cs.fcustom if f.face_des == cs.faceList_master), None)
+        slave_item = next((f for f in cs.fcustom if f.face_des == cs.faceList_slave), None)
+
+        if not master_item or not slave_item:
+            self.report({'ERROR'}, "Boundary not found.")
+            return {'CANCELLED'}
+
+        # Parse the vertex index strings
+        def parse_indices(vstring):
+            return [int(v) for v in vstring.strip("()").split()]
+
+        master_verts = parse_indices(master_item.name)
+        slave_verts = parse_indices(slave_item.name)
+
+        master_obj = bpy.data.objects.get(master_item.object_name)
+        slave_obj = bpy.data.objects.get(slave_item.object_name)
+
+        if not master_obj or not slave_obj:
+            self.report({'ERROR'}, "One or both objects not found.")
+            return {'CANCELLED'}
+
+        # Duplicate master and slave face regions into separate objects
+        def extract_face_region(obj, verts, name):
+            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.select_all(action='DESELECT')
+            obj.select_set(True)
+            context.view_layer.objects.active = obj
+
+            bpy.ops.object.duplicate()
+            dup = context.active_object
+            dup.name = name
+
+            bpy.ops.object.mode_set(mode='EDIT')
+            bm = bmesh.from_edit_mesh(dup.data)
+            for f in bm.faces:
+                if not all(v.index in verts for v in f.verts):
+                    f.select = False
+                else:
+                    f.select = True
+            bmesh.update_edit_mesh(dup.data)
+            bpy.ops.mesh.select_all(action='INVERT')
+            bpy.ops.mesh.delete(type='FACE')
+            bpy.ops.object.mode_set(mode='OBJECT')
+            return dup
+
+        master_region = extract_face_region(master_obj, master_verts, "MasterRegion")
+        slave_region = extract_face_region(slave_obj, slave_verts, "SlaveRegion")
+
+        # Perform boolean on full object
+        context.view_layer.objects.active = master_obj
+        master_obj.select_set(True)
+        slave_region.select_set(True)
+
+        bool_mod = master_obj.modifiers.new(name="MergeFaces", type='BOOLEAN')
+        bool_mod.operation = 'UNION'
+        bool_mod.object = slave_region
+        bool_mod.solver = 'EXACT'
+
+        bpy.ops.object.modifier_apply(modifier=bool_mod.name)
+
+        # Cleanup
+        bpy.data.objects.remove(slave_region, do_unlink=True)
+        bpy.data.objects.remove(master_region, do_unlink=True)
+
+        # Save mapping
+        item = cs.fmcustom.add()
+        item.master_face = cs.faceList_master
+        item.slave_face = cs.faceList_slave
+
+        self.report({'INFO'}, f"Merged {cs.faceList_master} with {cs.faceList_slave} using Boolean")
         return {'FINISHED'}
 
 class VNT_OT_merge_faces_delete(Operator):
