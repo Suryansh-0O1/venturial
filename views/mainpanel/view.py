@@ -244,13 +244,15 @@ class layout_controller:
             )
         
         row1 = layout.row()
+        row1.prop(cs, "curve_type", text="Curve Type")
         draw_p(self, context)
-        row1.operator('vnt.new_edge')
-        row1.prop(cs, "curve_type")
-        row1.operator('vnt.remove_edge')
+
         row2 = layout.row()
-        row2.operator('vnt.new_vert')
-        row2.operator('vnt.remove_vert')
+        row2.operator('vnt.new_edge')
+        row2.operator('vnt.remove_edge')
+        row3 = layout.row()
+        row3.operator('vnt.new_vert')
+        row3.operator('vnt.remove_vert')
 
         if len(ec):
             layout.prop(ec[cs.ecustom_index], "color")
