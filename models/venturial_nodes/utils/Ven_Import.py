@@ -3,7 +3,6 @@ from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty
 from bpy.types import Operator
 from pyvnt import *
-import os
 
 NODE_Y_SPACING = -60
 LEVEL_X_SPACING = -300
@@ -35,7 +34,6 @@ def update_last_y_position(x_pos, y_pos):
     global last_y_position_at_x
     if x_pos not in last_y_position_at_x or y_pos < last_y_position_at_x[x_pos]:
         last_y_position_at_x[x_pos] = y_pos
-
 
 def create_blender_node(node_tree, node_type, name, location, parent_frame=None):
     """Create a Blender node of the specified type"""
@@ -154,13 +152,13 @@ def set_node_list(blender_node, pyvnt_node, node_tree, x_pos, current_y):
         x_pos: X position for child nodes
         current_y: Y position for child nodes
     """
-    setup_node_properties(blender_node, pyvnt_node)
+    # setup_node_properties(blender_node, pyvnt_node)
     
     if isinstance(pyvnt_node, (Node_C, List_CP)):
         if isinstance(pyvnt_node, Node_C):
             print(f"Processing data items for Node_C: {pyvnt_node.name}")
             child_x = x_pos + LEVEL_X_SPACING
-            for data_item in pyvnt_node.get_data():
+            for data_item in pyvnt_node.get_ordered_items():
                 print(f"Processing data item: {data_item.name}")
                 child_y = get_next_y_position(child_x, current_y)
                 child_node = create_nodes_recursive(
@@ -172,27 +170,28 @@ def set_node_list(blender_node, pyvnt_node, node_tree, x_pos, current_y):
         elif isinstance(pyvnt_node, List_CP):
             if not pyvnt_node.is_a_node():
                 print(f"Processing data for list {pyvnt_node._Value_P__name}")
-                data = pyvnt_node.get_elems()[0]
+                data = pyvnt_node.get_elems()
                 child_x = x_pos + LEVEL_X_SPACING
-                for child in data:
-                    # Get the next available y-position at this x
-                    child_y = get_next_y_position(child_x, current_y)
-                    child_node = create_nodes_recursive(
-                        child, node_tree, blender_node, child_x, child_y, blender_node
-                    )
-                    if child_node:
-                        update_last_y_position(child_x, child_y)
+                for elems in data:
+                    for child in elems:
+                        # Get the next available y-position at this x
+                        child_y = get_next_y_position(child_x, current_y)
+                        child_node = create_nodes_recursive(
+                            child, node_tree, blender_node, child_x, child_y, blender_node
+                        )
+                        if child_node:
+                            update_last_y_position(child_x, child_y)
 
-        child_x = x_pos + LEVEL_X_SPACING
-        
-        for child in pyvnt_node.children:
-            child_y = get_next_y_position(child_x, current_y)
-            child_node = create_nodes_recursive(
-                child, node_tree, blender_node, child_x, child_y, blender_node
-            )
-            # Update the last used y-position
-            if child_node:
-                update_last_y_position(child_x, child_y)
+            child_x = x_pos + LEVEL_X_SPACING
+            
+            for child in pyvnt_node.children:
+                child_y = get_next_y_position(child_x, current_y)
+                child_node = create_nodes_recursive(
+                    child, node_tree, blender_node, child_x, child_y, blender_node
+                )
+                # Update the last used y-position
+                if child_node:
+                    update_last_y_position(child_x, child_y)
 
 def create_nodes_recursive(pyvnt_node, node_tree, parent_frame=None, x_pos=0, y_pos=0, parent_node=None):
     """
@@ -238,7 +237,7 @@ def create_nodes_recursive(pyvnt_node, node_tree, parent_frame=None, x_pos=0, y_
             blender_node.isNode = pyvnt_node.is_a_node()
             update_last_y_position(x_pos, y_pos)
             set_node_list(blender_node, pyvnt_node, node_tree, x_pos, y_pos)
-        else:   
+        else:
             data=pyvnt_node.get_elems()[0]
             if (len(data)>0) and (pyvnt_node.is_a_node()==False):
                 if all(type(x) == type(data[0]) for x in data) and (type(data[0])) in [Int_P,Flt_P]:
@@ -283,9 +282,9 @@ def create_nodes_recursive(pyvnt_node, node_tree, parent_frame=None, x_pos=0, y_
                 update_last_y_position(x_pos, y_pos)
                 
                 # Set up properties and children
-                set_node_list(blender_node, pyvnt_node, node_tree, x_pos, y_pos)
-        
-        # Connect List_CP to parent based on isNode property
+                set_node_list(blender_node, pyvnt_node, node_tree, x_pos, y_pos)  
+
+
         if parent_node and isinstance(parent_node, bpy.types.Node):
             if blender_node.bl_idname == 'N_MultiValue_P':
                 node_tree.links.new(blender_node.outputs[0], parent_node.inputs[0])
@@ -293,20 +292,14 @@ def create_nodes_recursive(pyvnt_node, node_tree, parent_frame=None, x_pos=0, y_
             else:
                 try:
                     if blender_node.isNode:
-                        # If it's a node, connect to Dict_C input
                         if parent_node.bl_idname in ['N_Dict_C','N_OUTPUT_P']:
-                            # print(f"Connecting List_CP node {blender_node.name} to parent dictionary {parent_node.name}")
                             node_tree.links.new(blender_node.outputs[0], parent_node.inputs[0])
-                            # print(f"Successfully connected {blender_node.name} to {parent_node.name}")
                     else:
-                        # If it's not a node, connect to Key_C or Dict_C input
-                        if parent_node.bl_idname in ['N_Key_C', 'N_Dict_C','N_OUTPUT_P']:
-                            # print(f"Connecting List_CP value {blender_node.name} to parent {parent_node.name}")
+                        if parent_node.bl_idname in ['N_Key_C', 'N_Dict_C','N_OUTPUT_P','N_List_CP']:
                             node_tree.links.new(blender_node.outputs[0], parent_node.inputs[0])
-                            # print(f"Successfully connected {blender_node.name} to {parent_node.name}")
                 except Exception as e:
                     print(f"Failed to connect List_CP to parent: {e}")
-                
+        
     elif isinstance(pyvnt_node, Key_C):
         print("Creating N_Key_C node")
         blender_node = create_blender_node(node_tree, 'N_Key_C', pyvnt_node.name, (x_pos, y_pos), parent_frame)
@@ -352,7 +345,6 @@ def create_nodes_recursive(pyvnt_node, node_tree, parent_frame=None, x_pos=0, y_
                 print(f"Failed to connect value node to parent: {e}")
     
     return blender_node
-
 
 class VENTURIAL_OT_import_file(Operator, ImportHelper):
     """Operator to import a file for the Venturial Node system"""
@@ -414,4 +406,4 @@ class VENTURIAL_OT_import_file(Operator, ImportHelper):
             return {'CANCELLED'}
         
         return {'FINISHED'}
-
+    

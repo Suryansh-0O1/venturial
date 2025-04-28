@@ -1,14 +1,7 @@
 import bpy
 from bpy.types import Node, NodeTree, NodeSocket, PropertyGroup
 from venturial_nodes.Nodes.Node import Venturial_Node
-
-class Property_Types(PropertyGroup):
-    '''
-    Property Group to store Key_C class variables
-    '''
-
-    name: bpy.props.StringProperty(name='name', default='')
-    value: bpy.props.IntProperty(name='value', default=0) or bpy.props.FloatProperty(name='value', default=0.0) or bpy.props.EnumProperty(name='value',items=[], default='')
+from ..Operator.Node_Links_Swapper import reorder_links,path_from_id
 
 class Key_C_Socket_In(NodeSocket):
     '''
@@ -52,6 +45,7 @@ class N_Key_C(Node, Venturial_Node):
     bl_icon = 'NONE'
 
     name: bpy.props.StringProperty(name='name', default='Key_C')
+    link_order: bpy.props.CollectionProperty(type=bpy.types.PropertyGroup)
     # values: bpy.props.CollectionProperty(type=Key_C_Socket_In)
     
 
@@ -73,24 +67,47 @@ class N_Key_C(Node, Venturial_Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, 'name')
     
+    
     def update(self):
-        for sock in self.inputs:
-            values = []
-            for conn in sock.links:
-                # Check if the from_socket is a vector socket
-                if hasattr(conn.from_socket, 'bl_idname') and conn.from_socket.bl_idname == 'Vec_P_Socket':
-                    # Handle Vec_P_Socket specially - it has x, y, z properties instead of default_value
-                    values.append((conn.from_socket.x, conn.from_socket.y, conn.from_socket.z))
-                else:
-                    # For regular sockets with default_value
-                    if hasattr(conn.from_socket, 'default_value'):
-                        values.append(conn.from_socket.default_value)
-                    else:
-                        values.append(None)  # Handle any other unexpected socket types
-            print(f'Node updated -> {values}')
-    
-    def socket_value_update(self, context):
-        print('Socket value updated')
-        self.update()
-    
+        input_socket = self.inputs.get('Key_C')
+        if not input_socket:
+            return
+
+        current_links = [link.from_socket.node.name for link in input_socket.links]
+
+        existing = [item.name for item in self.link_order]
+        if set(current_links) != set(existing):
+            self.link_order.clear()
+            print("Clering link order")
+            print("Current links: ", current_links)
+            print("Existing link: ", existing)
+            for name in current_links:
+                self.link_order.add().name = name
+            print("Link order: ", self.link_order)
         
+    def move_link(self, index, direction):
+        items = self.link_order
+        if direction == 'UP' and index > 0:
+            items.move(index, index - 1)
+        elif direction == 'DOWN' and index < len(items) - 1:
+            items.move(index, index + 1)
+        else:
+            return
+        reorder_links(self,'Key_C')
+
+    def draw_buttons_ext(self, context, layout):
+        layout.label(text='Key Order')
+        for i, item in enumerate(self.link_order):
+            row = layout.row(align=True)
+            row.label(text=item.name)
+            path =path_from_id(self)
+            
+            op_up = row.operator("node.move_link_order", text="", icon="TRIA_UP")
+            op_up.node_path = path
+            op_up.index = i
+            op_up.direction = 'UP'
+            
+            op_down = row.operator("node.move_link_order", text="", icon="TRIA_DOWN")
+            op_down.node_path = path
+            op_down.index = i
+            op_down.direction = 'DOWN'
