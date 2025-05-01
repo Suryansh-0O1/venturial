@@ -2,7 +2,7 @@ import bpy
 from bpy.types import Node, NodeSocket, Operator
 from bpy.props import EnumProperty, IntProperty, FloatProperty
 
-from venturial_nodes.Nodes.Node import Venturial_Node
+from .Node import Venturial_Node
 
 class MultiValue_Socket_Out(NodeSocket):
     bl_idname = 'MultiValue_Socket_Out'

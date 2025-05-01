@@ -1,7 +1,7 @@
 
 import bpy
 from bpy.types import Node, NodeTree, NodeSocket
-from venturial_nodes.Nodes.Node import Venturial_Node
+from .Node import Venturial_Node
 
 class N_Str_P(Node, Venturial_Node):
     '''

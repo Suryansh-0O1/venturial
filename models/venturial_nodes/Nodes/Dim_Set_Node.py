@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Node, NodeTree, NodeSocket
-from venturial_nodes.Nodes.Node import Venturial_Node
+from .Node import Venturial_Node
 
 class Dim_P_Socket(NodeSocket):
     '''

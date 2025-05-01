@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Node, NodeTree, NodeSocket
-from venturial_nodes.Nodes.Node import Venturial_Node
+from .Node import Venturial_Node
 
 class Vec_P_Socket(NodeSocket):
     '''
@@ -113,6 +113,3 @@ class N_Vec_P(Node, Venturial_Node):
             self.outputs['Vector'].z = self.z
         else:
             print(f"Warning: Output socket 'Vector' not found for node '{self.name}' during update.")
-
-
-

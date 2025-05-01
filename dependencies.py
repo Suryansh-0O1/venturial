@@ -4,13 +4,15 @@ import os
 import subprocess
 import ensurepip
 import importlib
+import zipfile
+import pkg_resources
+import shutil
 
 
 PATHTOINSTALL = bpy.utils.user_resource("SCRIPTS", path="modules")
 
 addon_dir_name = "venturial"
 
-# 3. Paths derived from addon structure
 user_scripts_path = bpy.utils.script_path_user()
 if user_scripts_path is None:
     print("ERROR: Blender user script path not found. Cannot locate addon.")
@@ -33,6 +35,22 @@ else:
 CUSTOM_MODULE_NAME = "pyvnt"
 
 restart_needed = False
+
+PYVNT_VERSION_WHL=None
+
+def get_pyvnt_version():
+    global PYVNT_VERSION_WHL
+    try:
+        with zipfile.ZipFile(CUSTOM_WHEEL_PATH, 'r') as whl:
+            for name in whl.namelist():
+                if name.endswith('METADATA') and '.dist-info/' in name:
+                    metadata = whl.read(name).decode('utf-8')
+                    for line in metadata.splitlines():
+                        if line.startswith('Version:'):
+                            PYVNT_VERSION_WHL= line.split(':', 1)[1].strip()
+                            return
+    except:
+        print(f"Failed to get pyvnt ")
 
 def ensure_pip():
     """Ensures pip is installed in Blender's Python environment."""
@@ -66,6 +84,20 @@ def run_pip_install(args, target_path, label=""):
     os.makedirs(target_path, exist_ok=True)
     env = os.environ.copy()
     env['PYTHONIOENCODING'] = 'utf-8'
+
+    for item in os.listdir(target_path):
+        item_path = os.path.join(target_path, item)
+        if item.startswith("pyvnt") and (item.endswith(".dist-info") or os.path.isdir(item)):
+            print(f"[{label}] Removing old: {item_path}")
+            try:
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                else:
+                    os.remove(item_path)
+            except Exception as e:
+                print(f"[{label}] Warning: Failed to remove {item_path}: {e}")
+
+
     cmd = [python_exe, "-m", "pip", "install", "--upgrade", "--no-cache-dir", f"--target={target_path}"] + args
     print(f"[{label}] Running: {' '.join(cmd)}")
     try:
@@ -85,32 +117,40 @@ def run_pip_install(args, target_path, label=""):
         print(f"[{label}] ERROR: Failed to run pip command: {e}")
         return False
 
-def read_required_modules_from_reqs():
-    """Parses requirements.txt, returns list of import names (maps pyyaml->yaml)."""
-    module_name_map = {'pyyaml': 'yaml'}
-    modules = []
-    if REQUIREMENTS_PATH is None or not os.path.exists(REQUIREMENTS_PATH):
-        print(f"Requirements file not found or path not configured: {REQUIREMENTS_PATH}")
-        return modules
+def get_module_version(module_name=None,iswhl=False):
+    """Get module version , returns version"""
     try:
-        with open(REQUIREMENTS_PATH) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    package_name = line.split("==")[0].split(">=")[0].split("<=")[0].split("!=")[0].split("~=")[0].strip()
-                    if package_name:
-                         import_name = module_name_map.get(package_name.lower(), package_name)
-                         modules.append(import_name)
-            return modules
-    except Exception as e:
-        print(f"Error reading requirements file {REQUIREMENTS_PATH}: {e}")
-        return []
+        return pkg_resources.get_distribution(module_name).version
+    except:
+        return None
+
+# def read_required_modules_from_reqs():
+#     """Parses requirements.txt, returns list of import names (maps pyyaml->yaml)."""
+#     module_name_map = {'pyyaml': 'yaml'}
+#     modules = []
+#     if REQUIREMENTS_PATH is None or not os.path.exists(REQUIREMENTS_PATH):
+#         print(f"Requirements file not found or path not configured: {REQUIREMENTS_PATH}")
+#         return modules
+#     try:
+#         with open(REQUIREMENTS_PATH) as f:
+#             for line in f:
+#                 line = line.strip()
+#                 try:
+#                     req = pkg_resources.Requirement.parse(line)
+#                     name = req.project_name
+#                     version = str(req.specifier) if req.specifier else None
+#                     modules.append([ name, version])
+#                 except Exception as e:
+#                     print(f"Failed to parse line: {line} - {e}")
+                
+#             return modules
+#     except Exception as e:
+#         print(f"Error reading requirements file {REQUIREMENTS_PATH}: {e}")
+#         return []
 
 def is_module_importable(module_name, search_paths=None):
-    """Checks if a module can be imported. Handles 'pyyaml' -> 'yaml'."""
+    """Checks if a module can be imported."""
     original_name = module_name
-    if module_name.lower() == 'pyyaml':
-        module_name = 'yaml'
 
     original_sys_path = list(sys.path)
     if search_paths:
@@ -119,7 +159,11 @@ def is_module_importable(module_name, search_paths=None):
                   sys.path.insert(0, spath)
         importlib.invalidate_caches()
     try:
-        importlib.import_module(module_name)
+        importlib.import_module(original_name)
+        print(PYVNT_VERSION_WHL)
+        print(get_module_version(original_name))
+        if PYVNT_VERSION_WHL!=get_module_version(original_name):
+            return False
         return True
     except ImportError:
         return False
@@ -130,7 +174,7 @@ def is_module_importable(module_name, search_paths=None):
         if search_paths:
             sys.path = original_sys_path
             importlib.invalidate_caches()
-
+        
 def install_dependencies():
     """
     Installs dependencies from requirements.txt and a custom wheel using pip.
@@ -138,13 +182,13 @@ def install_dependencies():
     Sets global 'restart_needed' if installation occurred.
     """
     global restart_needed
-    print("\n--- Dependency Installation Start (reqs + wheel) ---")
+    print("\n--- Dependency Installation Start ---")
 
+    get_pyvnt_version()
     if not ensure_pip():
         print("--- Dependency installation failed: pip unavailable ---")
         return False
 
-    # 2. Add target path to sys.path
     pip_path_added = False
     if PATHTOINSTALL not in sys.path:
         sys.path.insert(0, PATHTOINSTALL)
@@ -153,96 +197,29 @@ def install_dependencies():
     if pip_path_added:
         importlib.invalidate_caches()
 
-    # 3. Install from requirements.txt
-    pip_reqs_succeeded = True
-    modules_installed_from_reqs = False
-    if REQUIREMENTS_PATH is None or not os.path.exists(REQUIREMENTS_PATH):
-         print("Skipping requirements.txt: File not found or path not configured.")
-    else:
-        modules_from_reqs = read_required_modules_from_reqs()
-        if not modules_from_reqs:
-            print("No modules found in requirements.txt or failed to read.")
-        else:
-            print(f"Checking required modules from requirements.txt: {modules_from_reqs}")
-            missing_initially = [m for m in modules_from_reqs if not is_module_importable(m, [PATHTOINSTALL])]
-            if not missing_initially:
-                print("All modules from requirements.txt seem to be installed and importable.")
-            else:
-                print(f"Missing modules found: {missing_initially}. Attempting installation from requirements.txt...")
-                success = run_pip_install(["-r", REQUIREMENTS_PATH], PATHTOINSTALL, label="Requirements")
-                if success:
-                    print("pip command for requirements.txt completed successfully.")
-                    modules_installed_from_reqs = True
-                    restart_needed = True
-                else:
-                    print("ERROR: pip command for requirements.txt failed.")
-                    pip_reqs_succeeded = False
-
-    # 4. Install custom wheel
-    pip_custom_succeeded = True
-    custom_module_installed_this_run = False
-    if not pip_reqs_succeeded:
-         print("Skipping custom module wheel installation due to previous errors.")
-         pip_custom_succeeded = False
-    elif not CUSTOM_MODULE_NAME or not CUSTOM_WHEEL_PATH:
+    if not CUSTOM_MODULE_NAME or not CUSTOM_WHEEL_PATH:
          print("Skipping custom module wheel: Not configured.")
     elif not os.path.exists(CUSTOM_WHEEL_PATH):
          print(f"ERROR: Custom wheel file not found: {CUSTOM_WHEEL_PATH}")
-         # Check if the base addon path exists, helps debugging path issues
          if addon_base_path and not os.path.exists(addon_base_path):
              print(f"Hint: The base addon directory was not found at {addon_base_path}")
-         pip_custom_succeeded = False
     else:
-        # Check if already importable (maybe installed in a previous run)
-        # Note: if you *always* want to force install from the wheel, remove this check
         if is_module_importable(CUSTOM_MODULE_NAME, [PATHTOINSTALL]):
              print(f"Custom module '{CUSTOM_MODULE_NAME}' seems to be already importable.")
-             # Optionally, force upgrade?
-             # print(f"Attempting upgrade for '{CUSTOM_MODULE_NAME}' from wheel...")
-             # success = run_pip_install([CUSTOM_WHEEL_PATH], PATHTOINSTALL, label="CustomWheelUpgrade")
-             # if not success: pip_custom_succeeded = False # etc.
         else:
              print(f"Attempting to install custom module '{CUSTOM_MODULE_NAME}' from wheel: {os.path.basename(CUSTOM_WHEEL_PATH)}")
              success = run_pip_install([CUSTOM_WHEEL_PATH], PATHTOINSTALL, label="CustomWheel")
              if success:
                   print(f"pip command for custom wheel '{CUSTOM_MODULE_NAME}' completed successfully.")
-                  custom_module_installed_this_run = True
-                  restart_needed = True
              else:
                   print(f"ERROR: pip command for custom wheel '{CUSTOM_MODULE_NAME}' failed.")
-                  pip_custom_succeeded = False
+    if restart_needed:
+        print("Please restart the application or environment to apply the changes from the new 'pyvnt' module.")
 
     print("--- Running Final Checks ---")
     importlib.invalidate_caches()
-    overall_pip_success = pip_reqs_succeeded and pip_custom_succeeded
-    final_import_check_passed = True
-    modules_to_check = read_required_modules_from_reqs()
-    if CUSTOM_MODULE_NAME and CUSTOM_MODULE_NAME not in modules_to_check:
-         modules_to_check.append(CUSTOM_MODULE_NAME)
-
-    if not modules_to_check:
-        print("No modules specified for final check.")
+    
+    if is_module_importable(CUSTOM_MODULE_NAME, [PATHTOINSTALL]):
+        return True
     else:
-        print("Verifying imports after installation attempt...")
-        still_missing_final = []
-        for m in modules_to_check:
-             if not is_module_importable(m, [PATHTOINSTALL]):
-                  is_req_module = m != CUSTOM_MODULE_NAME
-                  if (is_req_module and pip_reqs_succeeded) or (not is_req_module and pip_custom_succeeded):
-                       still_missing_final.append(m)
-                       final_import_check_passed = False
-        if still_missing_final:
-             print(f"WARNING: Some modules installed by pip are not immediately importable: {still_missing_final}")
-             print("This often requires a Blender restart for the changes to take full effect.")
-             restart_needed = True
-        elif overall_pip_success:
-             print("All required modules appear to be installed and importable.")
-
-    if overall_pip_success:
-        print("--- Dependency installation process finished based on pip command success. ---")
-        if restart_needed:
-             print("*** Please restart Blender to ensure all dependencies are loaded correctly. ")
-        return True # Return True because pip commands succeeded
-    else:
-        print("--- Dependency installation failed due to pip errors. See logs above. ---")
-        return False # Return False because pip commands failed
+        return False

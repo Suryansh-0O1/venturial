@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Node, NodeTree, NodeSocket,PropertyGroup
-from venturial_nodes.Nodes.Node import Venturial_Node
+from .Node import Venturial_Node
 from ..Operator.Node_Links_Swapper import reorder_links,path_from_id
 
 class Dict_C_Socket_In(NodeSocket):
