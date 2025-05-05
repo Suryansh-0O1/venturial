@@ -250,36 +250,55 @@ class VNT_OT_new_vert(Operator):
 
             x = g @ selectedEdges[0].verts[0].co
             y = g @ selectedEdges[0].verts[1].co
-        except Exception:
+
+            # Calculate the center of the uppermost face of the cube
+            cube_center = context.active_object.location
+            face_center = (cube_center[0], cube_center[1], cube_center[2] + context.active_object.dimensions.z / 2)
+
+            # Calculate the radius (half the diagonal of the face)
+            face_diagonal = (context.active_object.dimensions.x ** 2 + context.active_object.dimensions.y ** 2) ** 0.5
+            radius = face_diagonal / 2
+
+            # Calculate the midpoint of the edge
+            midpoint = [(x[i] + y[i]) / 2 for i in range(3)]
+
+            # Calculate the direction vector from the face center to the midpoint
+            direction = [midpoint[i] - face_center[i] for i in range(3)]
+            direction[2] = 0  # Project onto the XY plane (ignore Z)
+
+            # Normalize the direction vector
+            length = (direction[0] ** 2 + direction[1] ** 2) ** 0.5
+            direction = [direction[i] / length for i in range(2)] + [0]
+
+            # Calculate the third vertex (coord) position
+            coord = [
+                face_center[0] + direction[0] * (radius),
+                face_center[1] + direction[1] * (radius),
+                (x[2] + y[2]) / 2  # Average Z value
+            ]
+
+        except Exception as e:
+            print(f"Error in first: {e}")
             return
-        
+
         for i in range(3):
             self.curr_edge.vc.add()
-        
-        self.curr_edge.vc[0].vert_loc=x
-        self.curr_edge.vc[2].vert_loc=y
-        coord = [None, None, None]
 
-        for i in range(3):
-            coord[i] = (x[i] + y[i])/1.5
-
-            if i==2:
-                coord[i] = (x[i] + y[i])/2
-        
+        self.curr_edge.vc[0].vert_loc = x
+        self.curr_edge.vc[2].vert_loc = y
         self.curr_edge.vert_collection.add()
-        self.curr_edge.vert_collection[0].vert_loc=coord
-        self.curr_edge.vc[1].vert_loc=coord
+        self.curr_edge.vert_collection[0].vert_loc = coord
+        self.curr_edge.vc[1].vert_loc = coord
         print(coord)
 
         bpy.ops.object.mode_set(mode='OBJECT')
-        # bpy.ops.mesh.primitive_vert_add() # to be changed
         bpy.ops.mesh.add_single_vertex()
         bpy.ops.object.mode_set(mode='OBJECT')
 
         vertex = context.selected_objects[0]
         vertex.location = coord
         vertex.name = f"{self.curr_edge.name}01"
-        vertex=0
+        vertex = 0
     
     def n_first(self, context):
         print("Executing n_first")
