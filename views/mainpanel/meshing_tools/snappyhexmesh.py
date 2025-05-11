@@ -479,27 +479,118 @@ class snappyhexmesh_menu:
     def snap_tab(self, tools, context):
         """Snap settings interface"""
         cs = context.scene
+        
+        # Master enable switch with icon
         box = tools.box()
-        box.label(text="Snap Settings")
+        title_row = box.row()
+        title_row.label(text="Snap Controls", icon="SNAP_ON")
         
-        row = box.row()
-        row.prop(cs, "snap", text="Enable Snap")
+        master_row = box.row()
+        master_row.prop(cs, "snap", text="Enable Surface Snapping")
         
-        if cs.snap:
-            # Snap control settings
-            box_settings = tools.box()
-            box_settings.label(text="Snap Controls", icon="SNAP_ON")
+        if not cs.snap:
+            info_row = box.row()
+            info_row.alignment = 'CENTER'
+            info_row.label(text="Surface snapping is disabled", icon="INFO")
+            return
+        
+        # Basic snapping parameters section
+        basic_box = tools.box()
+        basic_box.label(text="Basic Snapping Parameters", icon="SETTINGS")
+        
+        # Smooth Patch
+        row = basic_box.row(align=True)
+        row.label(text="Smooth Patch Iterations:")
+        row.prop(cs, "nSmoothPatch", text="")
+        
+        # Tolerance
+        row = basic_box.row(align=True)
+        row.label(text="Tolerance:")
+        row.prop(cs, "tolerance", text="")
+        
+        # Solve Iterations
+        row = basic_box.row(align=True)
+        row.label(text="Solve Iterations:")
+        row.prop(cs, "nSolveIter", text="")
+        
+        # Relax Iterations
+        row = basic_box.row(align=True)
+        row.label(text="Relax Iterations:")
+        row.prop(cs, "nRelaxIter", text="")
+        
+        # Feature snapping section
+        feature_box = tools.box()
+        
+        # Header row with feature snapping toggle
+        header_row = feature_box.row(align=True)
+        header_row.scale_y = 1.2
+        
+        # Left side with label
+        label_col = header_row.column()
+        label_col.label(text="Feature Edge Snapping", icon="EDGESEL")
+        
+        # Right side with enable/disable button
+        button_col = header_row.column(align=True)
+        button_col.alignment = 'RIGHT'
+        
+        if cs.useFeatureSnap:
+            button_col.alert = True
+        
+        button_col.operator(
+            "vnt.select_unselect_allsnap", 
+            text="", 
+            icon="CHECKMARK" if not cs.useFeatureSnap else "PANEL_CLOSE"
+        ).select_all = not cs.useFeatureSnap
+        
+        # Feature snapping options - only show if enabled
+        if cs.useFeatureSnap:
+            # Feature Snap Iterations
+            row = feature_box.row(align=True)
+            row.label(text="Feature Snap Iterations:")
+            row.prop(cs, "nFeatureSnapIter", text="")
             
-            # Basic controls
-            col = box_settings.column(align=True)
+            # Feature detection methods - in a sub-box for clarity
+            methods_box = feature_box.box()
+            methods_box.label(text="Feature Detection Methods", icon="OUTLINER_OB_LIGHTPROBE")
             
-            # Tolerance
-            row = col.row()
-            row.label(text="Tolerance")
-            row.prop(cs, "tolerance", text="")
+            # Implicit Feature Snap
+            row = methods_box.row()
+            row.prop(cs, "implicitFeatureSnap", 
+                    text="Implicit Feature Detection (sample surface)")
             
-            # Continue adding tooltips to other snap controls
-            # ...existing code...
+            # Explicit Feature Snap
+            row = methods_box.row()
+            row.prop(cs, "explicitFeatureSnap", 
+                    text="Explicit Feature Detection (use defined features)")
+            
+            # Multi-region Feature Snap
+            row = methods_box.row()
+            row.prop(cs, "multiRegionFeatureSnap", 
+                    text="Multi-region Feature Detection")
+        
+        # Syntax preview box
+        preview_box = tools.box()
+        preview_box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
+        
+        # Preview content
+        col = preview_box.column()
+        col.scale_y = 0.85
+        col.label(text="snapControls")
+        col.label(text="{")
+        col.label(text=f"    nSmoothPatch {cs.nSmoothPatch};")
+        col.label(text=f"    tolerance {cs.tolerance};")
+        col.label(text=f"    nSolveIter {cs.nSolveIter};")
+        col.label(text=f"    nRelaxIter {cs.nRelaxIter};")
+        
+        if cs.useFeatureSnap:
+            col.label(text="")
+            col.label(text="    // Feature snapping")
+            col.label(text=f"    nFeatureSnapIter {cs.nFeatureSnapIter};")
+            col.label(text=f"    implicitFeatureSnap {str(cs.implicitFeatureSnap).lower()};")
+            col.label(text=f"    explicitFeatureSnap {str(cs.explicitFeatureSnap).lower()};")
+            col.label(text=f"    multiRegionFeatureSnap {str(cs.multiRegionFeatureSnap).lower()};")
+        
+        col.label(text="}")
 
     def layercontrol_tab(self, tools, context):
         """Layer addition settings interface"""

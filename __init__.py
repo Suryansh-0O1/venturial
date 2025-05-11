@@ -115,7 +115,11 @@ from venturial.models.snappyhexmesh.castellated_operators import (
     CAST_UL_surface_regions
 )
 
-from venturial.models.snappyhexmesh.snap_operators import SnapControlsProperties
+from venturial.models.snappyhexmesh.snap_operators import (
+    SnapControlsProperties,
+    VNT_OT_select_unselect_allsnap
+)
+
 from venturial.models.snappyhexmesh.layer_operators import (
     LayerAdditionProperties, 
     LayerPatchSettings,
@@ -261,6 +265,7 @@ classes = (
     CAST_UL_surface_regions,
     
     SnapControlsProperties,
+    VNT_OT_select_unselect_allsnap,
     LayerAdditionProperties,
     LayerPatchSettings,
     VNT_OT_add_layer_patch,

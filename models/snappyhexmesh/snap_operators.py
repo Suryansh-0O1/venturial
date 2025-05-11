@@ -69,4 +69,30 @@ class SnapControlsProperties(PropertyGroup):
         default=False
     )
 
-# This class can be extended with additional operators if needed for snap controls
+# Select/unselect operator for snap controls
+class VNT_OT_select_unselect_allsnap(Operator):
+    """Select/Unselect all snap features"""
+    bl_idname = "vnt.select_unselect_allsnap"
+    bl_label = "Select/Unselect all snap features"
+    bl_description = "Select/Unselect all snap features from the list"
+    bl_options = {'INTERNAL'}
+    
+    select_all: BoolProperty(
+        default=False,
+        name="Select all Items of List",
+        options={'SKIP_SAVE'})
+        
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        cs = context.scene
+        
+        # Enable or disable feature snapping based on selection
+        if self.select_all:
+            cs.useFeatureSnap = True
+        else:
+            cs.useFeatureSnap = False
+              
+        return{'FINISHED'}
