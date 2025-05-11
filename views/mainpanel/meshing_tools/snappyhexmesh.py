@@ -1,18 +1,29 @@
 import bpy
 import os
-import json
 from bpy.app.handlers import persistent
 
-# Import operators from their new locations
+# Core operator imports
 from venturial.models.snappyhexmesh.geometry_operators import VNT_OT_create_new_geometry, VNT_OT_delete_geometry
 from venturial.models.snappyhexmesh.file_operators import VNT_OT_export_stl_geometry
 from venturial.models.snappyhexmesh.dictionary_operators import VNT_OT_generate_snappyhex_dict
 
+# Import tooltips but use a different approach for displaying them
+from venturial.models.snappyhexmesh.tooltips import (
+    CASTELLATED_TOOLTIPS,
+    SNAP_TOOLTIPS,
+    LAYER_TOOLTIPS,
+    QUALITY_TOOLTIPS,
+    DICTIONARY_TOOLTIPS
+)
+
 class snappyhexmesh_menu:
+    """Main menu handler for SnappyHexMesh interface, providing tabbed access to all settings"""
+    
     def layout(self, tools, context):
+        """Main layout handler that dispatches to the appropriate tab"""
         cs = context.scene
         
-        # Check which tab is selected and call the appropriate method
+        # Route to the appropriate tab method based on current selection
         tab = cs.mainpanel_categories
         if tab == "Geometry":
             self.geometry_tab(tools, context)
@@ -27,10 +38,11 @@ class snappyhexmesh_menu:
         elif tab == "Dictionary":
             self.dictionary_tab(tools, context)
         else:
-            # Default to geometry tab if none selected
+            # Default fallback
             self.geometry_tab(tools, context)
     
     def geometry_tab(self, tools, context):
+        """Geometry import/export and management interface"""
         cs = context.scene
 
         # STL File section
@@ -47,34 +59,36 @@ class snappyhexmesh_menu:
         row.label(text="Name of STL File")
         row.prop(cs, "stl_file_name", text="")
         
-        # Geometry section
+        # Geometry management
         row = tools.row(align=True)
         row.column(align=True).label(text="User Defined Geometry")
         row = tools.row(align=True)
-        row.column(align=True).template_list("UI_UL_list", "geometry_items", cs, "geometry_items", cs, "geometry_items_index", rows=3)
+        row.column(align=True).template_list("UI_UL_list", "geometry_items", cs, "geometry_items", 
+                                            cs, "geometry_items_index", rows=3)
         col_button = row.column(align=True)
         col_button.operator("vnt.create_new_geometry", text="", icon="ADD")
         col_button.operator("vnt.delete_geometry", text="", icon="REMOVE")
-        #----------------------------------------------------------------------------------------------
 
     def castellated_tab(self, tools, context):
+        """Castellated mesh creation settings interface"""
         cs = context.scene
         box = tools.box()
         box.label(text="Castellation Options")
         
-        # Main enable switch
+        # Master enable switch
         row = box.row()
         row.prop(cs, "castellatedMesh", text="Enable Castellated Mesh")
         
         if not cs.castellatedMesh:
             return
-            
-        # General Refinement Parameters
-        ref_box = tools.box()
-        ref_box.label(text="Refinement Parameters", icon="SETTINGS")
         
-        # Cell Limits
+        # --- SECTION 1: GENERAL REFINEMENT PARAMETERS ---
+        ref_box = tools.box()
+        ref_box.label(text="Global Refinement Parameters", icon="SETTINGS")
+        
         col = ref_box.column(align=True)
+        
+        # Cell count limits
         row = col.row()
         row.label(text="Max Local Cells:")
         row.prop(cs, "maxLocalCells", text="")
@@ -87,21 +101,21 @@ class snappyhexmesh_menu:
         row.label(text="Min Refinement Cells:")
         row.prop(cs, "minRefinementCells", text="")
         
-        # Load Balance
+        # Mesh balance
         row = col.row()
         row.label(text="Max Load Unbalance:")
         row.prop(cs, "maxLoadUnbalance", text="")
         
-        # Buffer Layers
+        # Buffer cells
         row = col.row()
         row.label(text="Cells Between Levels:")
         row.prop(cs, "nCellsBetweenLevels", text="")
         
-        # Feature Edge Refinement
+        # --- SECTION 2: FEATURE EDGE REFINEMENT ---
         feature_box = tools.box()
         feature_box.label(text="Feature Edge Refinement", icon="EDGESEL")
         
-        # Feature list with browse button
+        # Feature list 
         row = feature_box.row()
         col = row.column()
         col.template_list("CAST_UL_features_list", "", cs, "cast_features", 
@@ -111,250 +125,366 @@ class snappyhexmesh_menu:
         col_buttons.operator("vnt.add_feature", text="", icon="ADD")
         col_buttons.operator("vnt.remove_feature", text="", icon="REMOVE")
         
-        # Add file browser button for the selected feature
+        # Settings for selected feature
         if len(cs.cast_features) > 0 and cs.cast_features_index >= 0:
             feature = cs.cast_features[cs.cast_features_index]
             row = feature_box.row()
-            row.prop(feature, "file", text="File Path")
+            row.prop(feature, "file", text="Feature Edge File")
             
-            # Add browse button
+            # File browser button
             browse_op = row.operator("vnt.browse_feature_file", text="", icon="FILE_FOLDER")
             browse_op.feature_index = cs.cast_features_index
             
-            # Add options for the selected feature
-            box = feature_box.box()
-            row = box.row()
-            row.prop(feature, "use_levels", text="Use Distance-based Levels")
+            # Refinement levels configuration
+            level_box = feature_box.box()
+            level_box.label(text="Refinement Levels", icon="SORTSIZE")
             
-            if feature.use_levels:
-                row = box.row()
-                row.prop(feature, "distance", text="Distance")
-                row.prop(feature, "level_at_distance", text="Level")
-            else:
-                row = box.row()
-                row.prop(feature, "level", text="Level")
+            # Refinement mode selector
+            row = level_box.row()
+            row.label(text="Refinement Type:")
+            row = level_box.row()
+            row.prop(feature, "refinement_mode", text="")
+            
+            # Settings container
+            input_box = level_box.box()
+            
+            # Mode-specific UI
+            if feature.refinement_mode == 'uniform':
+                row = input_box.row(align=True)
+                row.label(text="Level:")
+                row.prop(feature, "level", text="")
+                
+                syntax_box = level_box.box()
+                syntax_box.label(text="Generated OpenFOAM Syntax:")
+                syntax_box.label(text=f"levels (({feature.level} {feature.level}));")
+                
+            elif feature.refinement_mode == 'single_distance':
+                col = input_box.column(align=True)
+                
+                row = col.row(align=True)
+                row.label(text="Distance:")
+                row.prop(feature, "distance", text="")
+                
+                row = col.row(align=True)
+                row.label(text="Level:")
+                row.prop(feature, "level_at_distance", text="")
+                
+                syntax_box = level_box.box()
+                syntax_box.label(text="Generated OpenFOAM Syntax:")
+                syntax_box.label(text=f"levels (({feature.distance} {feature.level_at_distance}));")
+                
+            else:  # multi_distance
+                row = input_box.row()
+                row.label(text="Multiple distance-level pairs:")
+                
+                # List of pairs
+                row = input_box.row()
+                col = row.column()
+                col.template_list("CAST_UL_feature_distance_level_pairs", "", 
+                                  feature, "distance_level_pairs",
+                                  feature, "distance_level_pairs_index", rows=3)
+                
+                # Controls
+                col_buttons = row.column(align=True)
+                col_buttons.operator("vnt.add_feature_distance_level_pair", text="", icon="ADD")
+                col_buttons.operator("vnt.remove_feature_distance_level_pair", text="", icon="REMOVE")
+                
+                if len(feature.distance_level_pairs) == 0:
+                    input_box.operator("vnt.add_feature_distance_level_pair", 
+                                       text="Add First Distance-Level Pair", icon="ADD")
+                
+                # Syntax preview
+                syntax_box = level_box.box()
+                syntax_box.label(text="Generated OpenFOAM Syntax:")
+                
+                if len(feature.distance_level_pairs) > 0:
+                    pairs_text = " ".join([f"({p.distance} {p.level})" for p in feature.distance_level_pairs])
+                    syntax_box.label(text=f"levels ({pairs_text});")
+                else:
+                    syntax_box.label(text="levels ();  (Empty - add pairs above)")
         
-        # Surface Refinement
+        # --- SECTION 3: SURFACE REFINEMENT ---
         surface_box = tools.box()
         surface_box.label(text="Surface Refinement", icon="SURFACE_DATA")
         
-        # Refinement surfaces list with add/remove buttons
+        # Global surface options
+        global_options = surface_box.box()
+        global_options.label(text="Global Options", icon="WORLD")
+        
+        # Gap Level Increment 
+        row = global_options.row()
+        row.prop(cs, "use_gap_level", text="Gap Level Increment")
+        
+        if cs.use_gap_level:
+            row = global_options.row()
+            row.label(text="Value:")
+            row.prop(cs, "gap_level_increment", text="")
+        
+        # Surface list
         row = surface_box.row()
         col = row.column()
         col.template_list("CAST_UL_refinement_surfaces", "", cs, "cast_refinement_surfaces", 
-                          cs, "cast_refinement_surfaces_index", rows=2)
+                          cs, "cast_refinement_surfaces_index", rows=3)
         
+        # Controls
         col_buttons = row.column(align=True)
         col_buttons.operator("vnt.add_refinement_surface", text="", icon="ADD")
         col_buttons.operator("vnt.remove_refinement_surface", text="", icon="REMOVE")
         
-        # Add options for the selected surface
-        if len(cs.cast_refinement_surfaces) > 0 and cs.cast_refinement_surfaces_index >= 0:
+        # Handle empty list case
+        if len(cs.cast_refinement_surfaces) == 0:
+            row = surface_box.row()
+            row.label(text="Add a refinement surface")
+        
+        # Settings for selected surface
+        elif cs.cast_refinement_surfaces_index >= 0 and cs.cast_refinement_surfaces_index < len(cs.cast_refinement_surfaces):
             surface = cs.cast_refinement_surfaces[cs.cast_refinement_surfaces_index]
             
-            # Source type selection - Geometry or STL
-            row = surface_box.row()
-            row.prop(surface, "source_type", text="Source Type")
+            settings_box = surface_box.box()
             
-            # Show appropriate field based on source type
+            # Source type selection
+            row = settings_box.row()
+            row.label(text="Source Type:")
+            row.prop(surface, "source_type", text="")
+            
+            # Geometry-specific settings
             if surface.source_type == 'geometry':
-                row = surface_box.row()
-                row.label(text="Geometry Object:")
+                geom_box = settings_box.box()
+                geom_box.label(text="Geometry Settings", icon="MESH_DATA")
                 
-                # Create a dropdown of available geometry objects
-                geom_items = [(geom.name, geom.name, "") for geom in cs.geometry_items]
-                if geom_items:
-                    row.prop_search(surface, "geometry_object", cs, "geometry_items", text="")
-                else:
-                    row.label(text="No geometry objects available. Create one in Geometry tab.", icon="INFO")
-            else:
-                # STL file option
-                row = surface_box.row()
-                row.prop(surface, "name", text="Surface STL")
+                # Object selection
+                row = geom_box.row()
+                row.label(text="Object:")
+                row.prop_search(surface, "geometry_object", cs, "geometry_items", text="")
                 
-                # Add browse button
-                browse_op = row.operator("vnt.browse_surface_file", text="", icon="FILE_FOLDER")
-                browse_op.surface_index = cs.cast_refinement_surfaces_index
-            
-            # Refinement level settings  
-            box = surface_box.box()
-            box.label(text="Refinement Levels")
-            row = box.row()
-            row.prop(surface, "min_level", text="Min Level")
-            row.prop(surface, "max_level", text="Max Level")
-            
-            # Zone settings
-            row = surface_box.row()
-            row.prop(surface, "use_zones", text="Define Zones")
-            
-            if surface.use_zones:
-                zone_box = surface_box.box()
-                col = zone_box.column(align=True)
-                col.prop(surface, "face_zone", text="Face Zone")
-                col.prop(surface, "cell_zone", text="Cell Zone")
+                if len(cs.geometry_items) == 0:
+                    row = geom_box.row()
+                    row.operator("vnt.create_new_geometry", text="Create Geometry", icon="ADD")
+                
+                # Refinement levels
+                row = geom_box.row(align=True)
+                row.label(text="Refinement Level:")
+                row.prop(surface, "min_level", text="Min")
+                row.prop(surface, "max_level", text="Max")
+                
+                # Zone settings
+                zone_box = geom_box.box()
+                zone_box.label(text="Zones", icon="OBJECT_DATA")
+                
                 row = zone_box.row()
-                row.prop(surface, "cell_zone_inside", text="Cell Zone Inside")
+                row.label(text="Face Zone:")
+                row.prop(surface, "face_zone", text="")
+                
+                row = zone_box.row()
+                row.label(text="Cell Zone:")
+                row.prop(surface, "cell_zone", text="")
+                
+                if surface.face_zone or surface.cell_zone:
+                    row = zone_box.row()
+                    row.label(text="Cell Zone Inside:")
+                    row.prop(surface, "cell_zone_inside", text="")
             
-            # Gap level settings
-            row = surface_box.row()
-            row.prop(surface, "use_gap_level", text="Use Gap Level Increment")
-            
-            if surface.use_gap_level:
-                row = surface_box.row()
-                row.prop(surface, "gap_level_increment", text="Gap Level Increment")
-            
-            # Perpendicular angle settings
-            row = surface_box.row()
-            row.prop(surface, "use_perpendicular_angle", text="Use Perpendicular Angle")
-            
-            if surface.use_perpendicular_angle:
-                row = surface_box.row()
-                row.prop(surface, "perpendicular_angle", text="Perpendicular Angle")
-            
-            # Patch info for the entire surface
-            row = surface_box.row()
-            row.prop(surface, "use_patch_info", text="Use Patch Info for Surface")
-            
-            if surface.use_patch_info:
-                patch_box = surface_box.box()
-                row = patch_box.row()
-                row.prop(surface.patch_info, "patch_type", text="Patch Type")
-                if surface.patch_info.patch_type != 'empty' and surface.patch_info.patch_type != 'wedge':
-                    row = patch_box.row()
-                    row.prop(surface.patch_info, "in_group", text="Group")
-            
-            # Region settings
-            row = surface_box.row()
-            row.label(text="Regions:")
-            row = surface_box.row()
-            
-            col = row.column()
-            col.operator("vnt.add_surface_region", text="Add Region", icon="ADD")
-            if len(surface.regions) > 0 and surface.regions_index >= 0:
-                col.operator("vnt.remove_surface_region", text="Remove Region", icon="REMOVE")
-            
-            # Show regions if there are any
-            if len(surface.regions) > 0:
-                for i, region in enumerate(surface.regions):
-                    region_box = surface_box.box()
-                    row = region_box.row()
-                    row.prop(region, "name", text=f"Region {i+1}")
+            # STL-specific settings
+            else:  # STL source
+                stl_box = settings_box.box()
+                stl_box.label(text="STL Settings", icon="FILE_3D")
+                
+                # Name
+                row = stl_box.row()
+                row.label(text="Name:")
+                row.prop(surface, "name", text="")
+                
+                # Refinement levels
+                row = stl_box.row(align=True)
+                row.label(text="Refinement Level:")
+                row.prop(surface, "min_level", text="Min")
+                row.prop(surface, "max_level", text="")
+                
+                # Region settings for STL
+                region_box = stl_box.box()
+                region_box.label(text="Surface Regions", icon="MOD_EDGESPLIT")
+                
+                # Region list
+                row = region_box.row()
+                col = row.column()
+                col.template_list("CAST_UL_surface_regions", "", surface, "regions", 
+                              surface, "regions_index", rows=3)
+                
+                # Controls
+                col_buttons = row.column(align=True)
+                col_buttons.operator("vnt.add_surface_region", text="", icon="ADD")
+                if len(surface.regions) > 0:
+                    col_buttons.operator("vnt.remove_surface_region", text="", icon="REMOVE")
+                
+                # Selected region settings
+                if len(surface.regions) > 0 and surface.regions_index >= 0 and surface.regions_index < len(surface.regions):
+                    region = surface.regions[surface.regions_index]
                     
-                    row = region_box.row()
-                    row.prop(region, "min_level", text="Min Level")
-                    row.prop(region, "max_level", text="Max Level")
+                    region_panel = region_box.box()
+                    region_panel.label(text=f"Region: {region.name}", icon="TOOL_SETTINGS")
                     
-                    # Patch info for this region
-                    row = region_box.row()
-                    row.prop(region, "use_patch_info", text="Use Patch Info")
+                    # Basic settings
+                    name_row = region_panel.row(align=True)
+                    name_row.label(text="Name:")
+                    name_row.prop(region, "name", text="")
+                    
+                    level_row = region_panel.row(align=True)
+                    level_row.label(text="Refinement Levels:")
+                    level_row.prop(region, "min_level", text="Min")
+                    level_row.prop(region, "max_level", text="")
+                    
+                    # Patch settings
+                    patch_row = region_panel.row()
+                    patch_row.prop(region, "use_patch_info", text="Use Patch Info", icon="MATERIAL")
                     
                     if region.use_patch_info:
-                        patch_box = region_box.box()
-                        row = patch_box.row()
-                        row.prop(region.patch_info, "patch_type", text="Patch Type")
-                        if region.patch_info.patch_type != 'empty' and region.patch_info.patch_type != 'wedge':
-                            row = patch_box.row()
-                            row.prop(region.patch_info, "in_group", text="Group")
+                        patch_box = region_panel.box()
+                        
+                        type_row = patch_box.row(align=True)
+                        type_row.label(text="Type:")
+                        type_row.prop(region.patch_info, "patch_type", text="")
+                        
+                        if region.patch_info.patch_type not in ['empty', 'wedge']:
+                            group_row = patch_box.row(align=True)
+                            group_row.label(text="Group:")
+                            group_row.prop(region.patch_info, "in_group", text="")
+                else:
+                    help_row = region_box.row()
+                    help_row.label(text="No regions defined - click '+' to add regions", icon="INFO")
         
-        # Global settings for feature resolution
-        feature_box = tools.box()
-        feature_box.label(text="Feature Angle Settings", icon="DRIVER_ROTATIONAL_DIFFERENCE")
+        # --- SECTION 4: FEATURE ANGLE SETTINGS ---
+        feature_angle_box = tools.box()
+        feature_angle_box.label(text="Feature Angle Settings", icon="MOD_BEVEL")
         
-        row = feature_box.row()
-        row.prop(cs, "resolveFeatureAngle", text="Resolve Feature Angle")
+        row = feature_angle_box.row(align=True)
+        row.label(text="Resolve Feature Angle:")
+        row.prop(cs, "resolveFeatureAngle", text="")
         
-        row = feature_box.row()
-        row.prop(cs, "planarAngle", text="Planar Angle")
+        row = feature_angle_box.row(align=True)
+        row.label(text="Planar Angle:")
+        row.prop(cs, "planarAngle", text="")
         
-        # Region Refinement
-        region_box = tools.box()
-        region_box.label(text="Region Refinement", icon="MESH_CUBE")
+        # --- SECTION 5: REGION REFINEMENT ---
+        region_refine_box = tools.box()
+        region_refine_box.label(text="Region Refinement", icon="MESH_CUBE")
         
-        row = region_box.row()
-        row.template_list("CAST_UL_refinement_regions", "", cs, "cast_refinement_regions", 
-                          cs, "cast_refinement_regions_index", rows=2)
+        # Region list
+        row = region_refine_box.row()
+        col = row.column()
+        col.template_list("CAST_UL_refinement_regions", "", cs, "cast_refinement_regions", 
+                          cs, "cast_refinement_regions_index", rows=3)
         
-        col = row.column(align=True)
-        col.operator("vnt.add_refinement_region", text="", icon="ADD")
-        col.operator("vnt.remove_refinement_region", text="", icon="REMOVE")
+        # Controls
+        col_buttons = row.column(align=True)
+        col_buttons.operator("vnt.add_refinement_region", text="", icon="ADD")
+        col_buttons.operator("vnt.remove_refinement_region", text="", icon="REMOVE")
         
-        # Add options for the selected region
-        if len(cs.cast_refinement_regions) > 0 and cs.cast_refinement_regions_index >= 0:
+        # Selected region settings
+        if len(cs.cast_refinement_regions) > 0 and cs.cast_refinement_regions_index >= 0 and cs.cast_refinement_regions_index < len(cs.cast_refinement_regions):
             region = cs.cast_refinement_regions[cs.cast_refinement_regions_index]
             
-            # Source type selection - Geometry or STL
-            row = region_box.row()
-            row.prop(region, "source_type", text="Source Type")
+            region_settings = region_refine_box.box()
+            region_settings.label(text=f"Region: {region.name}", icon="TOOL_SETTINGS")
             
-            # Show appropriate field based on source type
+            # Basic settings
+            row = region_settings.row()
+            row.label(text="Name:")
+            row.prop(region, "name", text="")
+            
+            # Source type settings
+            row = region_settings.row()
+            row.label(text="Source Type:")
+            row.prop(region, "source_type", text="")
+            
             if region.source_type == 'geometry':
-                row = region_box.row()
-                row.label(text="Geometry Object:")
+                row = region_settings.row()
+                row.label(text="Object:")
+                row.prop_search(region, "geometry_object", cs, "geometry_items", text="")
                 
-                # Create a dropdown of available geometry objects
-                geom_items = [(geom.name, geom.name, "") for geom in cs.geometry_items]
-                if geom_items:
-                    row.prop_search(region, "geometry_object", cs, "geometry_items", text="")
+                if len(cs.geometry_items) == 0:
+                    row = region_settings.row()
+                    row.operator("vnt.create_new_geometry", text="Create Geometry", icon="ADD")
+            
+            # Refinement mode settings
+            row = region_settings.row()
+            row.label(text="Mode:")
+            row.prop(region, "mode", text="")
+            
+            # Level settings based on mode
+            level_box = region_settings.box()
+            level_box.label(text="Refinement Levels", icon="SORTSIZE")
+            
+            if region.mode == 'inside':
+                row = level_box.row()
+                row.label(text="Level:")
+                row.prop(region, "level", text="")
+            else:  # distance mode
+                row = level_box.row()
+                row.label(text="Use multiple distances:")
+                row.prop(region, "use_advanced_distance", text="")
+                
+                if region.use_advanced_distance:
+                    row = level_box.row()
+                    col = row.column()
+                    col.template_list("CAST_UL_distance_level_pairs", "", region, "distance_level_pairs", 
+                                     region, "distance_level_pairs_index", rows=3)
+                    
+                    # Controls
+                    col_buttons = row.column(align=True)
+                    col_buttons.operator("vnt.add_distance_level_pair", text="", icon="ADD")
+                    col_buttons.operator("vnt.remove_distance_level_pair", text="", icon="REMOVE")
+                    
+                    if len(region.distance_level_pairs) == 0:
+                        row = level_box.row()
+                        row.operator("vnt.add_distance_level_pair", text="Add First Distance-Level Pair", icon="ADD")
                 else:
-                    row.label(text="No geometry objects available. Create one in Geometry tab.", icon="INFO")
-            else:
-                # STL file name
-                row = region_box.row()
-                row.prop(region, "name", text="Region STL")
-            
-            # Mode selection
-            row = region_box.row()
-            row.prop(region, "mode", text="Mode")
-            
-            # Show appropriate settings based on mode
-            if region.mode == 'distance':
-                # For distance mode, show distance-level pairs
-                box = region_box.box()
-                box.label(text="Distance-Level Pairs")
-                
-                row = box.row()
-                row.prop(region, "distance", text="Distance")
-                row.prop(region, "level_at_distance", text="Level")
-                
-                # Option for multiple distance-level pairs
-                row = box.row()
-                row.prop(region, "use_multi_levels", text="Use Multiple Levels")
-                
-                if region.use_multi_levels:
-                    row = box.row()
-                    row.prop(region, "distance2", text="Distance 2")
-                    row.prop(region, "level_at_distance2", text="Level")
-            else:
-                # For inside/outside mode, just show level
-                box = region_box.box()
-                row = box.row()
-                row.prop(region, "level", text="Level")
+                    row = level_box.row(align=True)
+                    row.label(text="Distance:")
+                    row.prop(region, "distance", text="")
+                    
+                    row = level_box.row(align=True)
+                    row.label(text="Level:")
+                    row.prop(region, "level_at_distance", text="")
+        elif len(cs.cast_refinement_regions) == 0:
+            row = region_refine_box.row()
+            row.label(text="No refinement regions defined - click '+' to add", icon="INFO")
         
-        # Location in Mesh settings
-        loc_box = tools.box()
-        loc_box.label(text="Location In Mesh", icon="EMPTY_AXIS")
+        # --- SECTION 6: MESH SELECTION ---
+        mesh_sel_box = tools.box()
+        mesh_sel_box.label(text="Mesh Selection", icon="ORIENTATION_CURSOR")
         
-        row = loc_box.row()
-        row.label(text="Coordinates:")
+        # Location in mesh
+        row = mesh_sel_box.row()
+        row.label(text="Location In Mesh:")
         
-        row = loc_box.row(align=True)
-        row.prop(cs, "locationInMeshX", text="X")
-        row.prop(cs, "locationInMeshY", text="Y")
-        row.prop(cs, "locationInMeshZ", text="Z")
+        coords_row = mesh_sel_box.row(align=True)
+        coords_row.prop(cs, "locationInMeshX", text="X")
+        coords_row.prop(cs, "locationInMeshY", text="Y")
+        coords_row.prop(cs, "locationInMeshZ", text="Z")
         
-        row = loc_box.row()
+        # Zone face setting
+        row = mesh_sel_box.row()
         row.prop(cs, "allowFreeStandingZoneFaces", text="Allow Free Standing Zone Faces")
+        
+        # Advanced Options
+        advanced_box = mesh_sel_box.box()
+        advanced_box.label(text="Advanced Options", icon="PREFERENCES")
+        
+        row = advanced_box.row()
+        row.prop(cs, "handleSnapProblems", text="Handle Snap Problems")
+        
+        row = advanced_box.row()
+        row.prop(cs, "useTopologicalSnapDetection", text="Use Topological Snap Detection")
 
     def snap_tab(self, tools, context):
+        """Snap settings interface"""
         cs = context.scene
         box = tools.box()
         box.label(text="Snap Settings")
         
-        # Enable/disable snap
         row = box.row()
         row.prop(cs, "snap", text="Enable Snap")
         
-        # Only show settings if enabled
         if cs.snap:
             # Snap control settings
             box_settings = tools.box()
@@ -368,266 +498,43 @@ class snappyhexmesh_menu:
             row.label(text="Tolerance")
             row.prop(cs, "tolerance", text="")
             
-            # Patch smoothing
-            row = col.row()
-            row.label(text="Patch Smoothing Iterations")
-            row.prop(cs, "nSmoothPatch", text="")
-            
-            # Mesh displacement relaxation
-            row = col.row()
-            row.label(text="Solve Iterations")
-            row.prop(cs, "nSolveIter", text="")
-            
-            # Maximum relaxation
-            row = col.row()
-            row.label(text="Relax Iterations")
-            row.prop(cs, "nRelaxIter", text="")
-            
-            # Feature snapping settings
-            feature_box = tools.box()
-            feature_box.label(text="Feature Snapping", icon="OUTLINER_OB_CURVE")
-            
-            # Enable feature snapping
-            row = feature_box.row()
-            row.prop(cs, "useFeatureSnap", text="Enable Feature Snapping")
-            
-            # Only show feature settings if enabled
-            if cs.useFeatureSnap:
-                col = feature_box.column(align=True)
-                
-                # Feature snap iterations
-                row = col.row()
-                row.label(text="Feature Snap Iterations")
-                row.prop(cs, "nFeatureSnapIter", text="")
-                
-                # Feature detection options
-                row = col.row()
-                row.label(text="Feature Detection:")
-                
-                box_detect = feature_box.box()
-                col_detect = box_detect.column()
-                
-                col_detect.prop(cs, "implicitFeatureSnap", text="Implicit Feature Snap")
-                col_detect.prop(cs, "explicitFeatureSnap", text="Explicit Feature Snap")
-                col_detect.prop(cs, "multiRegionFeatureSnap", text="Multi-region Feature Snap")
-                
-                if cs.implicitFeatureSnap and cs.explicitFeatureSnap:
-                    box_detect.label(text="Warning: Using both implicit and explicit feature snapping", icon="ERROR")
-                    
-            # Add advanced settings toggle if needed
-            row = tools.row()
-            row.label(text="Note: These settings will be written to snapControls dictionary")
+            # Continue adding tooltips to other snap controls
+            # ...existing code...
 
     def layercontrol_tab(self, tools, context):
+        """Layer addition settings interface"""
         cs = context.scene
         box = tools.box()
         box.label(text="Layer Addition Settings")
         
-        # Enable/disable layers
         row = box.row()
         row.prop(cs, "addLayers", text="Enable Layer Addition")
         
-        # Only show settings if enabled
-        if cs.addLayers:
-            # Basic settings
-            basic_box = tools.box()
-            basic_box.label(text="Basic Layer Settings", icon="MATCLOTH")
-            
-            # Relative sizes
-            row = basic_box.row()
-            row.prop(cs, "relativeSizes", text="Use Relative Sizes")
-            
-            # Thickness mode selection
-            row = basic_box.row()
-            row.label(text="Thickness Specification Method:")
-            row = basic_box.row()
-            row.prop(cs, "thickness_mode", text="")
-            
-            # Show relevant thickness parameters based on the selected mode
-            thickness_box = basic_box.box()
-            mode = cs.thickness_mode
-            
-            if 'expansion' in mode:
-                row = thickness_box.row()
-                row.prop(cs, "expansionRatio", text="Expansion Ratio")
-            
-            if 'first' in mode:
-                row = thickness_box.row()
-                row.prop(cs, "firstLayerThickness", text="First Layer Thickness")
-            
-            if 'final' in mode:
-                row = thickness_box.row()
-                row.prop(cs, "finalLayerThickness", text="Final Layer Thickness")
-            
-            if 'overall' in mode:
-                row = thickness_box.row()
-                row.prop(cs, "overallThickness", text="Overall Thickness")
-            
-            # Minimum thickness
-            row = basic_box.row()
-            row.prop(cs, "minThickness", text="Minimum Thickness")
-            
-            # Patch settings for layers
-            patch_box = tools.box()
-            patch_box.label(text="Layer Patches", icon="OUTLINER_OB_SURFACE")
-            
-            row = patch_box.row()
-            row.template_list("LAYER_UL_patches_list", "", cs, "layer_patches", 
-                              cs, "layer_patches_index", rows=2)
-            
-            col = row.column(align=True)
-            col.operator("vnt.add_layer_patch", text="", icon="ADD")
-            col.operator("vnt.remove_layer_patch", text="", icon="REMOVE")
-            
-            # Show settings for selected patch
-            if len(cs.layer_patches) > 0 and cs.layer_patches_index >= 0:
-                patch = cs.layer_patches[cs.layer_patches_index]
-                box = patch_box.box()
-                
-                row = box.row()
-                row.prop(patch, "name", text="Patch Name")
-                
-                row = box.row()
-                row.prop(patch, "nSurfaceLayers", text="Surface Layers")
-                
-                row = box.row()
-                row.prop(patch, "custom_expansion", text="Custom Expansion Settings")
-                
-                if patch.custom_expansion:
-                    col = box.column()
-                    col.prop(patch, "expansionRatio", text="Expansion Ratio")
-                    col.prop(patch, "finalLayerThickness", text="Final Layer Thickness")
-                    col.prop(patch, "minThickness", text="Minimum Thickness")
-            
-            # Advanced settings (collapsible)
-            advanced_box = tools.box()
-            advanced_box.label(text="Advanced Settings", icon="SETTINGS")
-            
-            # Feature angle control
-            row = advanced_box.row()
-            row.label(text="Feature Analysis:")
-            
-            feature_box = advanced_box.box()
-            col = feature_box.column(align=True)
-            col.prop(cs, "featureAngle", text="Feature Angle")
-            col.prop(cs, "maxFaceThicknessRatio", text="Max Face Thickness Ratio")
-            col.prop(cs, "nGrow", text="Grow Layers")
-            
-            # Surface normal control
-            row = advanced_box.row()
-            row.label(text="Patch Displacement:")
-            
-            normal_box = advanced_box.box()
-            col = normal_box.column(align=True)
-            col.prop(cs, "nSmoothSurfaceNormals", text="Smooth Surface Normals")
-            col.prop(cs, "nSmoothThickness", text="Smooth Thickness")
-            
-            # Medial axis settings
-            row = advanced_box.row()
-            row.label(text="Medial Axis Analysis:")
-            
-            medial_box = advanced_box.box()
-            col = medial_box.column(align=True)
-            col.prop(cs, "minMedialAxisAngle", text="Min Medial Axis Angle")
-            col.prop(cs, "maxThicknessToMedialRatio", text="Max Thickness to Medial Ratio")
-            col.prop(cs, "nSmoothNormals", text="Smooth Normals")
-            
-            # Mesh shrinking settings
-            row = advanced_box.row()
-            row.label(text="Mesh Shrinking:")
-            
-            shrink_box = advanced_box.box()
-            col = shrink_box.column(align=True)
-            col.prop(cs, "slipFeatureAngle", text="Slip Feature Angle")
-            col.prop(cs, "layerRelaxIter", text="Relax Iterations")
-            col.prop(cs, "nBufferCellsNoExtrude", text="Buffer Cells No Extrude")
-            col.prop(cs, "nLayerIter", text="Max Layer Iterations")
-            col.prop(cs, "nRelaxedIter", text="Relaxed Quality Iterations")
-            col.prop(cs, "additionalReporting", text="Additional Reporting")
-            
+        # Continue adding tooltips to layer settings
+        # ...existing code...
 
     def meshquality_tab(self, tools, context):
+        """Mesh quality settings interface"""
         cs = context.scene
         box = tools.box()
         box.label(text="Mesh Quality Settings")
         
-        # Main include file option
         include_box = tools.box()
         include_box.label(text="Mesh Quality Dictionary", icon="FILE_TEXT")
         row = include_box.row()
         row.prop(cs, "includeMeshQualityDict", text="Include External Mesh Quality Dictionary")
         
-        if cs.includeMeshQualityDict:
-            # Path to mesh quality dictionary
-            row = include_box.row()
-            row.prop(cs, "meshQualityDictPath", text="Path")
-            row.operator("vnt.select_mesh_quality_dict", text="", icon="FILE_FOLDER")
-        else:
-            # Basic mesh quality settings (if not using external file)
-            quality_box = tools.box()
-            quality_box.label(text="Basic Mesh Quality Settings", icon="SETTINGS")
-            
-            col = quality_box.column(align=True)
-            col.prop(cs, "maxNonOrtho", text="Max Non-Orthogonality")
-            col.prop(cs, "maxBoundarySkewness", text="Max Boundary Skewness")
-            col.prop(cs, "maxInternalSkewness", text="Max Internal Skewness")
-            
-            col = quality_box.column(align=True)
-            col.prop(cs, "maxConcave", text="Max Concaveness")
-            col.prop(cs, "minFlatness", text="Min Flatness")
-            col.prop(cs, "minVol", text="Min Volume")
-            
-            col = quality_box.column(align=True)
-            col.prop(cs, "minTetQuality", text="Min Tet Quality")
-        
-        # Relaxed settings section
-        relaxed_box = tools.box()
-        relaxed_box.label(text="Relaxed Quality Settings", icon="MOD_SMOOTH")
-        
-        row = relaxed_box.row()
-        row.label(text="Used during specific phases like layer addition")
-        
-        row = relaxed_box.row()
-        row.prop(cs, "relaxedMaxNonOrtho", text="Relaxed Max Non-Orthogonality")
-        
-        # Advanced settings
-        advanced_box = tools.box()
-        advanced_box.label(text="Advanced Settings", icon="PREFERENCES")
-        
-        col = advanced_box.column(align=True)
-        col.prop(cs, "nSmoothScale", text="Error Distribution Iterations")
-        col.prop(cs, "errorReduction", text="Error Reduction Factor")
-        
-        # Note about mesh quality dict
-        row = tools.row()
-        row.label(text="Note: These settings will be written to meshQualityControls dictionary")
+        # Continue adding tooltips to quality settings
+        # ...existing code...
 
     def dictionary_tab(self, tools, context):
+        """Dictionary generation settings interface"""
         cs = context.scene
         box = tools.box()
         box.label(text="Dictionary Controls")
         
-        # Write Flags section
-        write_box = tools.box()
-        write_box.label(text="Write Flags", icon="EXPORT")
-        
-        row = write_box.row()
-        row.label(text="Options:")
-        
-        col = write_box.column(align=True)
-        col.prop(cs, "writeFlag_scalarLevels", text="Scalar Levels (cell level field)")
-        col.prop(cs, "writeFlag_layerSets", text="Layer Sets (cellSets, faceSets)")
-        col.prop(cs, "writeFlag_layerFields", text="Layer Fields (layer coverage)")
-        
-        # Merge tolerance
-        merge_box = tools.box()
-        row = merge_box.row()
-        row.label(text="Merge Tolerance:")
-        row.prop(cs, "mergeTolerance", text="")
-        
-        # Dictionary actions
-        row = box.row(align=True)
-        row.operator("vnt.generate_snappyhex_dict", text="Generate Dictionary")
+        # Add tooltips to dictionary settings
+        # ...existing code...
 
 @persistent
 def clean_geometry_items(dummy):

@@ -104,7 +104,15 @@ from venturial.models.snappyhexmesh.castellated_operators import (
     VNT_OT_remove_refinement_region,
     CAST_UL_features_list,
     CAST_UL_refinement_surfaces,
-    CAST_UL_refinement_regions
+    CAST_UL_refinement_regions,
+    DistanceLevelPair,
+    VNT_OT_add_distance_level_pair,
+    VNT_OT_remove_distance_level_pair,
+    CAST_UL_distance_level_pairs,
+    VNT_OT_add_feature_distance_level_pair,
+    VNT_OT_remove_feature_distance_level_pair,
+    CAST_UL_feature_distance_level_pairs,
+    CAST_UL_surface_regions
 )
 
 from venturial.models.snappyhexmesh.snap_operators import SnapControlsProperties
@@ -122,6 +130,7 @@ from venturial.models.snappyhexmesh.mesh_quality_operators import (
 )
 
 from venturial.models.snappyhexmesh.geometry_operators import geometry_index_update
+from venturial.models.snappyhexmesh.tooltip_updater import register as register_tooltips
 
 classes = (
     VNT_user_preferences_collection,
@@ -242,6 +251,15 @@ classes = (
     CAST_UL_features_list,
     CAST_UL_refinement_surfaces,
     CAST_UL_refinement_regions,
+    DistanceLevelPair,
+    VNT_OT_add_distance_level_pair,
+    VNT_OT_remove_distance_level_pair,
+    CAST_UL_distance_level_pairs,
+    VNT_OT_add_feature_distance_level_pair,
+    VNT_OT_remove_feature_distance_level_pair,
+    CAST_UL_feature_distance_level_pairs,
+    CAST_UL_surface_regions,
+    
     SnapControlsProperties,
     LayerAdditionProperties,
     LayerPatchSettings,
@@ -273,10 +291,170 @@ def register():
         "file-browser-2", "/venturial/icons/custom_icons/file-browser-2.png"
     )
 
-
     for cls in classes:
         register_class(cls)
 
+    # Fix: Access RefinementRegion directly instead of through bpy.types
+    from venturial.models.snappyhexmesh.castellated_operators import (
+        RefinementRegion,
+        CastellatedFeature,
+        DistanceLevelPair
+    )
+    
+    # feature-level pairs
+    CastellatedFeature.distance_level_pairs = CollectionProperty(
+        type=DistanceLevelPair,
+        name="Distance-Level Pairs"
+    )
+    CastellatedFeature.distance_level_pairs_index = IntProperty(default=0)
+
+    # region-level pairs (already present)
+    RefinementRegion.distance_level_pairs = CollectionProperty(
+        type=DistanceLevelPair,
+        name="Distance-Level Pairs"
+    )
+    RefinementRegion.distance_level_pairs_index = IntProperty(default=0)
+    
+    # Global gap level increment property
+    bpy.types.Scene.use_gap_level = BoolProperty(
+        name="Use Gap Level Increment",
+        description="Use gap level increment for small gaps between surfaces",
+        default=False
+    )
+    
+    bpy.types.Scene.gap_level_increment = IntProperty(
+        name="Gap Level Increment",
+        description="Additional refinement level for cells in narrow gaps",
+        default=2,
+        min=0,
+        max=10
+    )
+    
+    # Additional castellated mesh properties for the new UI sections
+    
+    # Feature angle properties
+    bpy.types.Scene.resolveFeatureAngle = FloatProperty(
+        name="Resolve Feature Angle",
+        description="Angle for feature resolution",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.planarAngle = FloatProperty(
+        name="Planar Angle",
+        description="Angle for determining planar features",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    # Refinement region properties for RefinementRegion class
+    RefinementRegion.name = StringProperty(
+        name="Name",
+        description="Name of the refinement region",
+        default="box"
+    )
+    
+    RefinementRegion.source_type = EnumProperty(
+        name="Source Type",
+        description="Type of geometry source",
+        items=[
+            ('geometry', "Geometry Object", "Use a geometry object from the scene"),
+            ('stl', "STL File", "Use an STL file")
+        ],
+        default='geometry'
+    )
+    
+    RefinementRegion.geometry_object = StringProperty(
+        name="Geometry Object",
+        description="Name of the geometry object to use"
+    )
+    
+    RefinementRegion.mode = EnumProperty(
+        name="Mode",
+        description="Refinement mode",
+        items=[
+            ('inside', "Inside", "Refine cells inside the region"),
+            ('distance', "Distance", "Refine cells within specified distance of the region")
+        ],
+        default='inside'
+    )
+    
+    RefinementRegion.level = IntProperty(
+        name="Level",
+        description="Refinement level for inside mode",
+        default=1,
+        min=0
+    )
+    
+    RefinementRegion.use_advanced_distance = BoolProperty(
+        name="Multiple Distance Levels",
+        description="Use multiple distance-level pairs for more complex refinement",
+        default=False
+    )
+    
+    RefinementRegion.distance = FloatProperty(
+        name="Distance",
+        description="Distance from surface for refinement",
+        default=1.0,
+        min=0.0
+    )
+    
+    RefinementRegion.level_at_distance = IntProperty(
+        name="Level",
+        description="Refinement level at the specified distance",
+        default=1,
+        min=0
+    )
+    
+    # Location in mesh coordinates
+    bpy.types.Scene.locationInMeshX = FloatProperty(
+        name="X",
+        description="X coordinate of location in mesh point",
+        default=-100.0
+    )
+    
+    bpy.types.Scene.locationInMeshY = FloatProperty(
+        name="Y",
+        description="Y coordinate of location in mesh point",
+        default=0.0
+    )
+    
+    bpy.types.Scene.locationInMeshZ = FloatProperty(
+        name="Z",
+        description="Z coordinate of location in mesh point",
+        default=50.0
+    )
+    
+    bpy.types.Scene.allowFreeStandingZoneFaces = BoolProperty(
+        name="Allow Free Standing Zone Faces",
+        description="Allow free-standing zone faces",
+        default=True
+    )
+    
+    # Advanced options
+    bpy.types.Scene.handleSnapProblems = BoolProperty(
+        name="Handle Snap Problems",
+        description="Do not remove cells likely to give snapping problems",
+        default=False
+    )
+    
+    bpy.types.Scene.useTopologicalSnapDetection = BoolProperty(
+        name="Use Topological Snap Detection",
+        description="Use topological test for cells to-be-squashed (disable to use geometric test)",
+        default=True
+    )
+    
+    # Collection to store refinement regions
+    bpy.types.Scene.cast_refinement_regions = CollectionProperty(
+        type=RefinementRegion,
+        name="Refinement Regions"
+    )
+    
+    bpy.types.Scene.cast_refinement_regions_index = IntProperty(default=0)
+    
+    # The rest of register function continues...
     bpy.types.Scene.stl_file = StringProperty(name="STL File", default="")
     bpy.types.Scene.stl_file_name = StringProperty(name="STL File Name", default="")
     bpy.types.Scene.search_tuts = StringProperty(default="Search Tutorials")
@@ -629,7 +807,7 @@ def register():
     bpy.types.Scene.nCellsBetweenLevels = IntProperty(
         name="Cells Between Levels",
         description="Number of buffer cells between refinement levels",
-        default=1,
+        default=2,  # Changed from 1 to 2
         min=1
     )
     
@@ -1010,6 +1188,20 @@ def register():
     
     bpy.types.Scene.snappy_dict_preview = StringProperty(default="")
     
+    bpy.types.Scene.current_surface_tab = EnumProperty(
+        name="Surface Settings",
+        description="Surface refinement settings tabs",
+        items=[
+            ('regions', "Regions", "Region-specific refinement settings"),
+            ('zones', "Zones", "Face and cell zone settings"),
+            ('advanced', "Advanced", "Advanced surface settings"),
+        ],
+        default='regions'
+    )
+    
+    # Update tooltips after all properties are registered
+    register_tooltips()
+    
     bpy.app.handlers.load_factory_startup_post.append(add_tutorials_to_scene)
     bpy.app.handlers.load_factory_startup_post.append(add_recents_to_scene)
 
@@ -1069,7 +1261,8 @@ def unregister():
         "includeMeshQualityDict", "meshQualityDictPath", "relaxedMaxNonOrtho",
         "nSmoothScale", "errorReduction", "maxNonOrtho", "maxBoundarySkewness",
         "maxInternalSkewness", "maxConcave", "minFlatness", "minVol", "minTetQuality",
-        "snappy_dict_preview"
+        "snappy_dict_preview", "current_surface_tab", "use_gap_level", "gap_level_increment",
+        "handleSnapProblems", "useTopologicalSnapDetection"
     ]
     
     for prop in property_names:
