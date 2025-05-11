@@ -138,7 +138,7 @@ class snappyhexmesh_menu:
         surface_box = tools.box()
         surface_box.label(text="Surface Refinement", icon="SURFACE_DATA")
         
-        # Refinement surfaces list with browse button
+        # Refinement surfaces list with add/remove buttons
         row = surface_box.row()
         col = row.column()
         col.template_list("CAST_UL_refinement_surfaces", "", cs, "cast_refinement_surfaces", 
@@ -152,33 +152,119 @@ class snappyhexmesh_menu:
         if len(cs.cast_refinement_surfaces) > 0 and cs.cast_refinement_surfaces_index >= 0:
             surface = cs.cast_refinement_surfaces[cs.cast_refinement_surfaces_index]
             
+            # Source type selection - Geometry or STL
             row = surface_box.row()
-            row.prop(surface, "name", text="Surface Name")
+            row.prop(surface, "source_type", text="Source Type")
             
-            # Add browse button
-            browse_op = row.operator("vnt.browse_surface_file", text="", icon="FILE_FOLDER")
-            browse_op.surface_index = cs.cast_refinement_surfaces_index
+            # Show appropriate field based on source type
+            if surface.source_type == 'geometry':
+                row = surface_box.row()
+                row.label(text="Geometry Object:")
+                
+                # Create a dropdown of available geometry objects
+                geom_items = [(geom.name, geom.name, "") for geom in cs.geometry_items]
+                if geom_items:
+                    row.prop_search(surface, "geometry_object", cs, "geometry_items", text="")
+                else:
+                    row.label(text="No geometry objects available. Create one in Geometry tab.", icon="INFO")
+            else:
+                # STL file option
+                row = surface_box.row()
+                row.prop(surface, "name", text="Surface STL")
+                
+                # Add browse button
+                browse_op = row.operator("vnt.browse_surface_file", text="", icon="FILE_FOLDER")
+                browse_op.surface_index = cs.cast_refinement_surfaces_index
             
-            row = surface_box.row()
+            # Refinement level settings  
+            box = surface_box.box()
+            box.label(text="Refinement Levels")
+            row = box.row()
             row.prop(surface, "min_level", text="Min Level")
             row.prop(surface, "max_level", text="Max Level")
+            
+            # Zone settings
+            row = surface_box.row()
+            row.prop(surface, "use_zones", text="Define Zones")
+            
+            if surface.use_zones:
+                zone_box = surface_box.box()
+                col = zone_box.column(align=True)
+                col.prop(surface, "face_zone", text="Face Zone")
+                col.prop(surface, "cell_zone", text="Cell Zone")
+                row = zone_box.row()
+                row.prop(surface, "cell_zone_inside", text="Cell Zone Inside")
+            
+            # Gap level settings
+            row = surface_box.row()
+            row.prop(surface, "use_gap_level", text="Use Gap Level Increment")
+            
+            if surface.use_gap_level:
+                row = surface_box.row()
+                row.prop(surface, "gap_level_increment", text="Gap Level Increment")
+            
+            # Perpendicular angle settings
+            row = surface_box.row()
+            row.prop(surface, "use_perpendicular_angle", text="Use Perpendicular Angle")
+            
+            if surface.use_perpendicular_angle:
+                row = surface_box.row()
+                row.prop(surface, "perpendicular_angle", text="Perpendicular Angle")
+            
+            # Patch info for the entire surface
+            row = surface_box.row()
+            row.prop(surface, "use_patch_info", text="Use Patch Info for Surface")
+            
+            if surface.use_patch_info:
+                patch_box = surface_box.box()
+                row = patch_box.row()
+                row.prop(surface.patch_info, "patch_type", text="Patch Type")
+                if surface.patch_info.patch_type != 'empty' and surface.patch_info.patch_type != 'wedge':
+                    row = patch_box.row()
+                    row.prop(surface.patch_info, "in_group", text="Group")
             
             # Region settings
             row = surface_box.row()
             row.label(text="Regions:")
-            row.operator("vnt.add_surface_region", text="", icon="ADD")
+            row = surface_box.row()
+            
+            col = row.column()
+            col.operator("vnt.add_surface_region", text="Add Region", icon="ADD")
             if len(surface.regions) > 0 and surface.regions_index >= 0:
-                row.operator("vnt.remove_surface_region", text="", icon="REMOVE")
+                col.operator("vnt.remove_surface_region", text="Remove Region", icon="REMOVE")
             
             # Show regions if there are any
             if len(surface.regions) > 0:
                 for i, region in enumerate(surface.regions):
-                    box = surface_box.box()
-                    row = box.row()
+                    region_box = surface_box.box()
+                    row = region_box.row()
                     row.prop(region, "name", text=f"Region {i+1}")
-                    row = box.row()
+                    
+                    row = region_box.row()
                     row.prop(region, "min_level", text="Min Level")
                     row.prop(region, "max_level", text="Max Level")
+                    
+                    # Patch info for this region
+                    row = region_box.row()
+                    row.prop(region, "use_patch_info", text="Use Patch Info")
+                    
+                    if region.use_patch_info:
+                        patch_box = region_box.box()
+                        row = patch_box.row()
+                        row.prop(region.patch_info, "patch_type", text="Patch Type")
+                        if region.patch_info.patch_type != 'empty' and region.patch_info.patch_type != 'wedge':
+                            row = patch_box.row()
+                            row.prop(region.patch_info, "in_group", text="Group")
+        
+        # Global settings for feature resolution
+        feature_box = tools.box()
+        feature_box.label(text="Feature Angle Settings", icon="DRIVER_ROTATIONAL_DIFFERENCE")
+        
+        row = feature_box.row()
+        row.prop(cs, "resolveFeatureAngle", text="Resolve Feature Angle")
+        
+        row = feature_box.row()
+        row.prop(cs, "planarAngle", text="Planar Angle")
         
         # Region Refinement
         region_box = tools.box()
@@ -196,20 +282,69 @@ class snappyhexmesh_menu:
         if len(cs.cast_refinement_regions) > 0 and cs.cast_refinement_regions_index >= 0:
             region = cs.cast_refinement_regions[cs.cast_refinement_regions_index]
             
+            # Source type selection - Geometry or STL
             row = region_box.row()
-            row.prop(region, "name", text="Name")
+            row.prop(region, "source_type", text="Source Type")
+            
+            # Show appropriate field based on source type
+            if region.source_type == 'geometry':
+                row = region_box.row()
+                row.label(text="Geometry Object:")
+                
+                # Create a dropdown of available geometry objects
+                geom_items = [(geom.name, geom.name, "") for geom in cs.geometry_items]
+                if geom_items:
+                    row.prop_search(region, "geometry_object", cs, "geometry_items", text="")
+                else:
+                    row.label(text="No geometry objects available. Create one in Geometry tab.", icon="INFO")
+            else:
+                # STL file name
+                row = region_box.row()
+                row.prop(region, "name", text="Region STL")
+            
+            # Mode selection
+            row = region_box.row()
             row.prop(region, "mode", text="Mode")
             
+            # Show appropriate settings based on mode
             if region.mode == 'distance':
+                # For distance mode, show distance-level pairs
                 box = region_box.box()
+                box.label(text="Distance-Level Pairs")
+                
                 row = box.row()
                 row.prop(region, "distance", text="Distance")
-                row.prop(region, "level_at_distance", text="Level at Distance")
+                row.prop(region, "level_at_distance", text="Level")
+                
+                # Option for multiple distance-level pairs
+                row = box.row()
+                row.prop(region, "use_multi_levels", text="Use Multiple Levels")
+                
+                if region.use_multi_levels:
+                    row = box.row()
+                    row.prop(region, "distance2", text="Distance 2")
+                    row.prop(region, "level_at_distance2", text="Level")
             else:
+                # For inside/outside mode, just show level
                 box = region_box.box()
                 row = box.row()
                 row.prop(region, "level", text="Level")
-    
+        
+        # Location in Mesh settings
+        loc_box = tools.box()
+        loc_box.label(text="Location In Mesh", icon="EMPTY_AXIS")
+        
+        row = loc_box.row()
+        row.label(text="Coordinates:")
+        
+        row = loc_box.row(align=True)
+        row.prop(cs, "locationInMeshX", text="X")
+        row.prop(cs, "locationInMeshY", text="Y")
+        row.prop(cs, "locationInMeshZ", text="Z")
+        
+        row = loc_box.row()
+        row.prop(cs, "allowFreeStandingZoneFaces", text="Allow Free Standing Zone Faces")
+
     def snap_tab(self, tools, context):
         cs = context.scene
         box = tools.box()
@@ -410,9 +545,6 @@ class snappyhexmesh_menu:
             col.prop(cs, "nRelaxedIter", text="Relaxed Quality Iterations")
             col.prop(cs, "additionalReporting", text="Additional Reporting")
             
-            # Note that these settings will be written to addLayersControls dictionary
-            row = tools.row()
-            row.label(text="Note: These settings will be written to addLayersControls dictionary")
 
     def meshquality_tab(self, tools, context):
         cs = context.scene
@@ -474,6 +606,24 @@ class snappyhexmesh_menu:
         cs = context.scene
         box = tools.box()
         box.label(text="Dictionary Controls")
+        
+        # Write Flags section
+        write_box = tools.box()
+        write_box.label(text="Write Flags", icon="EXPORT")
+        
+        row = write_box.row()
+        row.label(text="Options:")
+        
+        col = write_box.column(align=True)
+        col.prop(cs, "writeFlag_scalarLevels", text="Scalar Levels (cell level field)")
+        col.prop(cs, "writeFlag_layerSets", text="Layer Sets (cellSets, faceSets)")
+        col.prop(cs, "writeFlag_layerFields", text="Layer Fields (layer coverage)")
+        
+        # Merge tolerance
+        merge_box = tools.box()
+        row = merge_box.row()
+        row.label(text="Merge Tolerance:")
+        row.prop(cs, "mergeTolerance", text="")
         
         # Dictionary actions
         row = box.row(align=True)

@@ -121,6 +121,8 @@ from venturial.models.snappyhexmesh.mesh_quality_operators import (
     VNT_OT_select_mesh_quality_dict
 )
 
+from venturial.models.snappyhexmesh.geometry_operators import geometry_index_update
+
 classes = (
     VNT_user_preferences_collection,
     VNT_OT_save_preferences,
@@ -585,7 +587,11 @@ def register():
     )
 
     bpy.types.Scene.geometry_items = CollectionProperty(type=fileitemproperties)  # Reusing existing class
-    bpy.types.Scene.geometry_items_index = IntProperty(name="Geometry Items Index", default=0)
+    bpy.types.Scene.geometry_items_index = IntProperty(
+        name="Geometry Items Index",
+        default=0,
+        update=geometry_index_update
+    )
 
     bpy.types.Scene.castellatedMesh = BoolProperty(name="Castellated Mesh", default=False)
     bpy.types.Scene.snap = BoolProperty(name="Snap", default=False)

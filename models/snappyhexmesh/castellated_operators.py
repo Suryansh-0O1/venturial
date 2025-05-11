@@ -48,6 +48,22 @@ class RefinementRegion(PropertyGroup):
         default="region"
     )
     
+    source_type: EnumProperty(
+        name="Source Type",
+        description="Type of geometry source",
+        items=[
+            ('geometry', "Geometry Object", "Use a geometry object from the scene"),
+            ('stl', "STL File", "Use an STL file")
+        ],
+        default='geometry'
+    )
+    
+    geometry_object: StringProperty(
+        name="Geometry Object",
+        description="Name of the geometry object to use for refinement",
+        default=""
+    )
+    
     mode: EnumProperty(
         name="Mode",
         description="Refinement mode",
@@ -79,16 +95,38 @@ class RefinementRegion(PropertyGroup):
         default=4,
         min=0
     )
+    
+    use_multi_levels: BoolProperty(
+        name="Use Multiple Levels",
+        description="Use multiple distance-level pairs",
+        default=False
+    )
+    
+    distance2: FloatProperty(
+        name="Distance 2",
+        description="Second distance value for multi-level distance refinement",
+        default=2.0,
+        min=0.0
+    )
+    
+    level_at_distance2: IntProperty(
+        name="Level at Distance 2",
+        description="Refinement level at the second distance",
+        default=3,
+        min=0
+    )
 
 class PatchInfo(PropertyGroup):
     """Represents patch information for a refinement surface"""
-    type: EnumProperty(
+    patch_type: EnumProperty(
         name="Type",
         description="Type of patch",
         items=[
             ('patch', "Patch", "Regular patch"),
             ('wall', "Wall", "Wall patch"),
-            ('symmetry', "Symmetry", "Symmetry patch")
+            ('symmetry', "Symmetry", "Symmetry patch"),
+            ('empty', "Empty", "Empty patch"),
+            ('wedge', "Wedge", "Wedge patch")
         ],
         default='patch'
     )
@@ -120,6 +158,16 @@ class RefinementSurfaceRegion(PropertyGroup):
         default=2,
         min=0
     )
+    
+    use_patch_info: BoolProperty(
+        name="Use Patch Info",
+        description="Specify patch information for this region",
+        default=False
+    )
+    
+    patch_info: PointerProperty(
+        type=PatchInfo
+    )
 
 class RefinementSurface(PropertyGroup):
     """Represents a refinement surface for castellated mesh"""
@@ -127,6 +175,22 @@ class RefinementSurface(PropertyGroup):
         name="Name",
         description="Name of the refinement surface",
         default="surface.stl"
+    )
+    
+    source_type: EnumProperty(
+        name="Source Type",
+        description="Type of geometry source",
+        items=[
+            ('geometry', "Geometry Object", "Use a geometry object from the scene"),
+            ('stl', "STL File", "Use an STL file")
+        ],
+        default='geometry'
+    )
+    
+    geometry_object: StringProperty(
+        name="Geometry Object",
+        description="Name of the geometry object to use for refinement",
+        default=""
     )
     
     min_level: IntProperty(
@@ -158,6 +222,34 @@ class RefinementSurface(PropertyGroup):
     
     patch_info: PointerProperty(
         type=PatchInfo
+    )
+    
+    use_zones: BoolProperty(
+        name="Use Zones",
+        description="Specify face and cell zones",
+        default=False
+    )
+    
+    face_zone: StringProperty(
+        name="Face Zone",
+        description="Name of the face zone",
+        default=""
+    )
+    
+    cell_zone: StringProperty(
+        name="Cell Zone",
+        description="Name of the cell zone",
+        default=""
+    )
+    
+    cell_zone_inside: EnumProperty(
+        name="Cell Zone Inside",
+        description="Cell zone inside option",
+        items=[
+            ('inside', "Inside", "Inside the surface"),
+            ('outside', "Outside", "Outside the surface")
+        ],
+        default='inside'
     )
     
     gap_level_increment: IntProperty(
@@ -234,23 +326,18 @@ class VNT_OT_remove_feature(Operator):
                 cs.cast_features_index -= 1
         return {'FINISHED'}
 
-class VNT_OT_add_refinement_surface(Operator, ImportHelper):
+class VNT_OT_add_refinement_surface(Operator):
     """Add a new refinement surface"""
     bl_idname = "vnt.add_refinement_surface"
     bl_label = "Add Refinement Surface"
     
-    filename_ext = ".stl"
-    filter_glob: StringProperty(default="*.stl", options={'HIDDEN'})
-    
     def execute(self, context):
         item = context.scene.cast_refinement_surfaces.add()
-        if self.filepath:
-            item.name = os.path.basename(self.filepath)
+        
+        if len(context.scene.geometry_items) > 0:
+            item.geometry_object = context.scene.geometry_items[0].name
+            
         return {'FINISHED'}
-    
-    def invoke(self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
 
 class VNT_OT_browse_surface_file(Operator, ImportHelper):
     """Browse for refinement surface file"""
@@ -266,6 +353,7 @@ class VNT_OT_browse_surface_file(Operator, ImportHelper):
         if self.filepath and self.surface_index >= 0 and self.surface_index < len(context.scene.cast_refinement_surfaces):
             surface = context.scene.cast_refinement_surfaces[self.surface_index]
             surface.name = os.path.basename(self.filepath)
+            surface.source_type = 'stl'
         return {'FINISHED'}
 
 class VNT_OT_remove_refinement_surface(Operator):
@@ -334,6 +422,10 @@ class VNT_OT_add_refinement_region(Operator):
         item = context.scene.cast_refinement_regions.add()
         item.name = self.region_name
         item.mode = self.mode
+        
+        if len(context.scene.geometry_items) > 0:
+            item.geometry_object = context.scene.geometry_items[0].name
+            
         return {'FINISHED'}
     
     def invoke(self, context, event):
