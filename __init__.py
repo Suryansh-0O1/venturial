@@ -341,6 +341,17 @@ def register():
         max=10
     )
     
+    # Register mesh quality property groups
+    bpy.types.Scene.mesh_quality = PointerProperty(
+        type=MeshQualityProperties,
+        name="Mesh Quality Settings"
+    )
+    
+    bpy.types.Scene.relaxed_mesh_quality = PointerProperty(
+        type=RelaxedMeshQualityProperties,
+        name="Relaxed Mesh Quality Settings"
+    )
+    
     # Additional castellated mesh properties for the new UI sections
     
     # Feature angle properties
@@ -1144,83 +1155,6 @@ def register():
         default="meshQualityDict"
     )
     
-    bpy.types.Scene.relaxedMaxNonOrtho = FloatProperty(
-        name="Relaxed Max Non-Orthogonality",
-        description="Maximum non-orthogonality allowed in relaxed mode",
-        default=75.0,
-        min=0.0,
-        max=180.0
-    )
-    
-    bpy.types.Scene.nSmoothScale = IntProperty(
-        name="Smooth Scale Iterations",
-        description="Number of error distribution iterations",
-        default=4,
-        min=0
-    )
-    
-    bpy.types.Scene.errorReduction = FloatProperty(
-        name="Error Reduction",
-        description="Amount to scale back displacement at error points",
-        default=0.75,
-        min=0.0,
-        max=1.0
-    )
-    
-    # Basic mesh quality settings if not using external file
-    bpy.types.Scene.maxNonOrtho = FloatProperty(
-        name="Max Non-Orthogonality",
-        description="Maximum non-orthogonality allowed",
-        default=65.0,
-        min=0.0,
-        max=180.0
-    )
-    
-    bpy.types.Scene.maxBoundarySkewness = FloatProperty(
-        name="Max Boundary Skewness",
-        description="Maximum boundary face skewness allowed",
-        default=20.0,
-        min=0.0
-    )
-    
-    bpy.types.Scene.maxInternalSkewness = FloatProperty(
-        name="Max Internal Skewness",
-        description="Maximum internal face skewness allowed",
-        default=4.0,
-        min=0.0
-    )
-    
-    bpy.types.Scene.maxConcave = FloatProperty(
-        name="Max Concaveness",
-        description="Maximum concaveness allowed",
-        default=80.0,
-        min=0.0,
-        max=180.0
-    )
-    
-    bpy.types.Scene.minFlatness = FloatProperty(
-        name="Min Flatness",
-        description="Ratio of minimum projected area to actual area",
-        default=0.5,
-        min=0.0,
-        max=1.0
-    )
-    
-    bpy.types.Scene.minVol = FloatProperty(
-        name="Min Volume",
-        description="Minimum cell volume",
-        default=1e-13,
-        precision=15
-    )
-    
-    bpy.types.Scene.minTetQuality = FloatProperty(
-        name="Min Tet Quality",
-        description="Minimum quality of tetrahedral cells",
-        default=1e-30,
-        min=0.0,
-        max=1.0
-    )
-    
     bpy.types.Scene.snappy_dict_preview = StringProperty(default="")
     
     bpy.types.Scene.current_surface_tab = EnumProperty(
@@ -1232,6 +1166,12 @@ def register():
             ('advanced', "Advanced", "Advanced surface settings"),
         ],
         default='regions'
+    )
+    
+    # Advanced mesh quality toggle
+    bpy.types.Scene.show_advanced_quality = BoolProperty(
+        name="Show Advanced Quality Settings",
+        default=False
     )
     
     # Update tooltips after all properties are registered
@@ -1293,12 +1233,10 @@ def unregister():
         "minMedialAxisAngle", "maxThicknessToMedialRatio", "nSmoothNormals",
         "slipFeatureAngle", "layerRelaxIter", "nBufferCellsNoExtrude", "nLayerIter",
         "nRelaxedIter", "additionalReporting", "layer_patches", "layer_patches_index",
-        "includeMeshQualityDict", "meshQualityDictPath", "relaxedMaxNonOrtho",
-        "nSmoothScale", "errorReduction", "maxNonOrtho", "maxBoundarySkewness",
-        "maxInternalSkewness", "maxConcave", "minFlatness", "minVol", "minTetQuality",
-        "snappy_dict_preview", "current_surface_tab", "use_gap_level", "gap_level_increment",
+        "includeMeshQualityDict", "meshQualityDictPath", "snappy_dict_preview",
+        "current_surface_tab", "use_gap_level", "gap_level_increment",
         "handleSnapProblems", "useTopologicalSnapDetection", "show_layer_advanced",
-        "layer_strategy", "detectExtrusionIsland"
+        "layer_strategy", "detectExtrusionIsland", "show_advanced_quality",
     ]
     
     for prop in property_names:
@@ -1307,6 +1245,12 @@ def unregister():
                 delattr(bpy.types.Scene, prop)
             except Exception as e:
                 print(f"Failed to delete property {prop}: {e}")
+    
+    try:
+        del bpy.types.Scene.mesh_quality
+        del bpy.types.Scene.relaxed_mesh_quality
+    except Exception as e:
+        print(f"Failed to delete mesh quality properties: {e}")
     
     try:
         if add_tutorials_to_scene in bpy.app.handlers.load_factory_startup_post:

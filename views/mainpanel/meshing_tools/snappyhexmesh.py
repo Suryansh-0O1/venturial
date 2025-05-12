@@ -884,17 +884,216 @@ class snappyhexmesh_menu:
         col.label(text="}")
 
     def meshquality_tab(self, tools, context):
-        """Mesh quality settings interface"""
-        cs = context.scene
-        box = tools.box()
-        box.label(text="Mesh Quality Settings")
+        """
+        Mesh quality settings interface for SnappyHexMesh.
         
+        Provides controls for setting mesh quality constraints including standard 
+        quality metrics, advanced settings, relaxed criteria, and error handling.
+        """
+        cs = context.scene
+        mesh_quality = cs.mesh_quality
+        relaxed = cs.relaxed_mesh_quality
+        
+        # Master section header
+        main_box = tools.box()
+        main_box.label(text="Mesh Quality Controls", icon="SETTINGS")
+        
+        #--------------------------------------------------
+        # SECTION 1: EXTERNAL DICTIONARY OPTION
+        #--------------------------------------------------
         include_box = tools.box()
         include_box.label(text="Mesh Quality Dictionary", icon="FILE_TEXT")
-        row = include_box.row()
-        row.prop(cs, "includeMeshQualityDict", text="Include External Mesh Quality Dictionary")
         
-        # Continue adding tooltips to quality settings
+        row = include_box.row()
+        row.prop(mesh_quality, "includeMeshQualityDict", text="Include External Mesh Quality Dictionary")
+        
+        if mesh_quality.includeMeshQualityDict:
+            row = include_box.row(align=True)
+            row.prop(mesh_quality, "meshQualityDictPath", text="")
+            row.operator("vnt.select_mesh_quality_dict", text="", icon="FILE_FOLDER")
+            
+            info_row = include_box.row()
+            info_row.label(text="External dictionary will override settings below", icon="INFO")
+        
+        #--------------------------------------------------
+        # SECTION 2: PRIMARY QUALITY CONSTRAINTS
+        #--------------------------------------------------
+        quality_box = tools.box()
+        quality_box.label(text="Standard Quality Constraints", icon="CONSTRAINT")
+        
+        # Basic mesh quality settings in a grid layout
+        grid = quality_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        
+        # Non-orthogonality
+        row = grid.row(align=True)
+        row.label(text="Max Non-Orthogonality:")
+        row.prop(mesh_quality, "maxNonOrtho", text="")
+        
+        # Skewness
+        row = grid.row(align=True)
+        row.label(text="Max Boundary Skewness:")
+        row.prop(mesh_quality, "maxBoundarySkewness", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Max Internal Skewness:")
+        row.prop(mesh_quality, "maxInternalSkewness", text="")
+        
+        # Shape quality
+        row = grid.row(align=True)
+        row.label(text="Max Concaveness:")
+        row.prop(mesh_quality, "maxConcave", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Min Flatness:")
+        row.prop(mesh_quality, "minFlatness", text="")
+        
+        # Volume constraints
+        row = grid.row(align=True)
+        row.label(text="Min Volume:")
+        row.prop(mesh_quality, "minVol", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Min Tet Quality:")
+        row.prop(mesh_quality, "minTetQuality", text="")
+        
+        #--------------------------------------------------
+        # SECTION 3: ADVANCED QUALITY SETTINGS
+        #--------------------------------------------------
+        adv_box = tools.box()
+        row = adv_box.row(align=True)
+        icon = "DISCLOSURE_TRI_DOWN" if mesh_quality.show_advanced_quality else "DISCLOSURE_TRI_RIGHT"
+        row.prop(mesh_quality, "show_advanced_quality", text="Advanced Quality Settings", icon=icon, toggle=True)
+        
+        if mesh_quality.show_advanced_quality:
+            grid = adv_box.grid_flow(row_major=True, columns=2, even_columns=True)
+            
+            row = grid.row(align=True)
+            row.label(text="Min Vol Collapse Ratio:")
+            row.prop(mesh_quality, "minVolCollapseRatio", text="")
+            
+            row = grid.row(align=True)
+            row.label(text="Min Area:")
+            row.prop(mesh_quality, "minArea", text="")
+            
+            row = grid.row(align=True)
+            row.label(text="Min Twist:")
+            row.prop(mesh_quality, "minTwist", text="")
+            
+            row = grid.row(align=True)
+            row.label(text="Min Determinant:")
+            row.prop(mesh_quality, "minDeterminant", text="")
+            
+            row = grid.row(align=True)
+            row.label(text="Min Face Weight:")
+            row.prop(mesh_quality, "minFaceWeight", text="")
+            
+            row = grid.row(align=True)
+            row.label(text="Min Vol Ratio:")
+            row.prop(mesh_quality, "minVolRatio", text="")
+            
+            row = grid.row(align=True)
+            row.label(text="Min Triangle Twist:")
+            row.prop(mesh_quality, "minTriangleTwist", text="")
+        
+        #--------------------------------------------------
+        # SECTION 4: RELAXED QUALITY SETTINGS
+        #--------------------------------------------------
+        relaxed_box = tools.box()
+        relaxed_box.label(text="Relaxed Quality Settings", icon="CURVES_EASING_EASE")
+        
+        help_row = relaxed_box.row()
+        help_row.label(text="These settings are used after reaching nRelaxedIter iterations", icon="INFO")
+        
+        grid = relaxed_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        
+        row = grid.row(align=True)
+        row.label(text="Relaxed Max Non-Ortho:")
+        row.prop(relaxed, "maxNonOrtho", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Relaxed Max Boundary Skewness:")
+        row.prop(relaxed, "maxBoundarySkewness", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Relaxed Max Internal Skewness:")
+        row.prop(relaxed, "maxInternalSkewness", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Relaxed Max Concaveness:")
+        row.prop(relaxed, "maxConcave", text="")
+        
+        #--------------------------------------------------
+        # SECTION 5: ERROR DISTRIBUTION SETTINGS
+        #--------------------------------------------------
+        error_box = tools.box()
+        error_box.label(text="Error Distribution Settings", icon="SNAP_FACE")
+        
+        grid = error_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        
+        row = grid.row(align=True)
+        row.label(text="Smooth Scale Iterations:")
+        row.prop(mesh_quality, "nSmoothScale", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Error Reduction:")
+        row.prop(mesh_quality, "errorReduction", text="")
+        
+        #--------------------------------------------------
+        # SECTION 6: SYNTAX PREVIEW
+        #--------------------------------------------------
+        box = tools.box()
+        box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
+        col = box.column()
+        col.scale_y = 0.85
+        col.label(text="meshQualityControls")
+        col.label(text="{")
+        
+        # Include external dict if enabled
+        if mesh_quality.includeMeshQualityDict:
+            col.label(text=f'    #include "{os.path.basename(mesh_quality.meshQualityDictPath)}";')
+            col.label(text="    // External dictionary will override settings below")
+            col.label(text="")
+
+        # Standard constraints
+        col.label(text=f"    maxNonOrtho {mesh_quality.maxNonOrtho};")
+        col.label(text=f"    maxBoundarySkewness {mesh_quality.maxBoundarySkewness};")
+        col.label(text=f"    maxInternalSkewness {mesh_quality.maxInternalSkewness};")
+        col.label(text=f"    maxConcave {mesh_quality.maxConcave};")
+        col.label(text=f"    minFlatness {mesh_quality.minFlatness};")
+        col.label(text=f"    minVol {mesh_quality.minVol};")
+        col.label(text=f"    minTetQuality {mesh_quality.minTetQuality};")
+
+        # Advanced constraints
+        if mesh_quality.show_advanced_quality:
+            col.label(text="    ")
+            col.label(text="    // Advanced quality settings")
+            col.label(text=f"    minVolCollapseRatio {mesh_quality.minVolCollapseRatio};")
+            if mesh_quality.minArea > 0:
+                col.label(text=f"    minArea {mesh_quality.minArea};")
+            col.label(text=f"    minTwist {mesh_quality.minTwist};")
+            col.label(text=f"    minDeterminant {mesh_quality.minDeterminant};")
+            col.label(text=f"    minFaceWeight {mesh_quality.minFaceWeight};")
+            col.label(text=f"    minVolRatio {mesh_quality.minVolRatio};")
+            if mesh_quality.minTriangleTwist > 0:
+                col.label(text=f"    minTriangleTwist {mesh_quality.minTriangleTwist};")
+
+        # Relaxed settings
+        col.label(text="    ")
+        col.label(text="    // Relaxed quality settings")
+        col.label(text="    relaxed")
+        col.label(text="    {")
+        col.label(text=f"        maxNonOrtho {relaxed.maxNonOrtho};")
+        col.label(text=f"        maxBoundarySkewness {relaxed.maxBoundarySkewness};")
+        col.label(text=f"        maxInternalSkewness {relaxed.maxInternalSkewness};")
+        col.label(text=f"        maxConcave {relaxed.maxConcave};")
+        col.label(text="    }")
+
+        # Error distribution
+        col.label(text="    ")
+        col.label(text=f"    nSmoothScale {mesh_quality.nSmoothScale};")
+        col.label(text=f"    errorReduction {mesh_quality.errorReduction};")
+
+        col.label(text="}")
 
     def dictionary_tab(self, tools, context):
         """Dictionary generation settings interface"""
