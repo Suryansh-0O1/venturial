@@ -69,6 +69,7 @@ def update_property_descriptions():
     update_property("nLayerIter", LAYER_TOOLTIPS)
     update_property("nRelaxedIter", LAYER_TOOLTIPS)
     update_property("additionalReporting", LAYER_TOOLTIPS)
+    update_property("detectExtrusionIsland", LAYER_TOOLTIPS)
     
     # Mesh quality properties
     update_property("includeMeshQualityDict", QUALITY_TOOLTIPS)

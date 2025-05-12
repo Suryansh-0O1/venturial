@@ -593,16 +593,295 @@ class snappyhexmesh_menu:
         col.label(text="}")
 
     def layercontrol_tab(self, tools, context):
-        """Layer addition settings interface"""
+        """Layer addition settings interface for boundary layer mesh generation"""
         cs = context.scene
+        
+        # Master enable switch with icon
         box = tools.box()
-        box.label(text="Layer Addition Settings")
+        title_row = box.row()
+        title_row.label(text="Layer Addition Controls", icon="MESH_DATA")
         
-        row = box.row()
-        row.prop(cs, "addLayers", text="Enable Layer Addition")
+        master_row = box.row()
+        master_row.prop(cs, "addLayers", text="Enable Layer Addition")
         
-        # Continue adding tooltips to layer settings
-        # ...existing code...
+        # Return early if layers are disabled
+        if not cs.addLayers:
+            info_row = box.row()
+            info_row.alignment = 'CENTER'
+            info_row.label(text="Layer addition is disabled", icon="INFO")
+            return
+        
+        #--------------------------------------------------
+        # SECTION 1: BASIC LAYER PARAMETERS
+        #--------------------------------------------------
+        basic_box = tools.box()
+        basic_box.label(text="Basic Layer Parameters", icon="SETTINGS")
+        
+        # Global sizing control
+        row = basic_box.row()
+        row.prop(cs, "relativeSizes", text="Use Relative Sizes")
+        
+        # Layer thickness specification method
+        row = basic_box.row()
+        row.label(text="Thickness Specification Method:")
+        row = basic_box.row()
+        row.prop(cs, "thickness_mode", text="")
+        
+        # Layer thickness parameters in an organized grid
+        params_box = basic_box.box()
+        params_box.label(text="Layer Thickness Parameters")
+        grid = params_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        
+        # Show only parameters relevant to selected thickness mode
+        if 'expansion' in cs.thickness_mode:
+            row = grid.row(align=True)
+            row.label(text="Expansion Ratio:")
+            row.prop(cs, "expansionRatio", text="")
+        
+        if 'overall' in cs.thickness_mode:
+            row = grid.row(align=True)
+            row.label(text="Overall Thickness:")
+            row.prop(cs, "overallThickness", text="")
+        
+        if 'final' in cs.thickness_mode:
+            row = grid.row(align=True)
+            row.label(text="Final Layer Thickness:")
+            row.prop(cs, "finalLayerThickness", text="")
+        
+        if 'first' in cs.thickness_mode:
+            row = grid.row(align=True)
+            row.label(text="First Layer Thickness:")
+            row.prop(cs, "firstLayerThickness", text="")
+        
+        # Always show minimum thickness control
+        row = grid.row(align=True)
+        row.label(text="Minimum Thickness:")
+        row.prop(cs, "minThickness", text="")
+        
+        #--------------------------------------------------
+        # SECTION 2: FEATURE HANDLING
+        #--------------------------------------------------
+        feature_box = tools.box()
+        feature_box.label(text="Feature Handling", icon="EDGESEL")
+        
+        # Feature controls in a grid layout
+        grid = feature_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        
+        row = grid.row(align=True)
+        row.label(text="Feature Angle:")
+        row.prop(cs, "featureAngle", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Growth Layers:")
+        row.prop(cs, "nGrow", text="")
+        
+        #--------------------------------------------------
+        # SECTION 3: PATCH-SPECIFIC SETTINGS
+        #--------------------------------------------------
+        patches_box = tools.box()
+        patches_header = patches_box.row(align=True)
+        patches_header.label(text="Patch-Specific Settings", icon="SURFACE_DATA")
+        patches_header.operator("vnt.import_boundary_patches", text="Import Boundaries", icon="IMPORT")
+        
+        # Patches list with controls
+        row = patches_box.row()
+        col = row.column()
+        col.template_list("LAYER_UL_patches_list", "", cs, "layer_patches", 
+                         cs, "layer_patches_index", rows=3)
+        
+        # List operations
+        col_buttons = row.column(align=True)
+        col_buttons.operator("vnt.add_layer_patch", text="", icon="ADD")
+        col_buttons.operator("vnt.remove_layer_patch", text="", icon="REMOVE")
+        col_buttons.separator()
+        col_buttons.operator("vnt.duplicate_layer_patch", text="", icon="DUPLICATE")
+        
+        # Settings for selected patch
+        if len(cs.layer_patches) > 0 and cs.layer_patches_index >= 0 and cs.layer_patches_index < len(cs.layer_patches):
+            patch = cs.layer_patches[cs.layer_patches_index]
+            
+            # Patch settings container
+            settings_box = patches_box.box()
+            settings_box.label(text=f"Settings for: {patch.name}")
+            
+            # Basic patch settings
+            grid = settings_box.grid_flow(row_major=True, columns=2, even_columns=True)
+            row = grid.row(align=True)
+            row.label(text="Surface Layers:")
+            row.prop(patch, "nSurfaceLayers", text="")
+            
+            # Custom expansion settings
+            row = settings_box.row()
+            row.prop(patch, "custom_expansion", text="Custom Expansion Settings")
+            
+            if patch.custom_expansion:
+                grid = settings_box.grid_flow(row_major=True, columns=2, even_columns=True)
+                
+                row = grid.row(align=True)
+                row.label(text="Expansion Ratio:")
+                row.prop(patch, "expansionRatio", text="")
+                
+                row = grid.row(align=True)
+                row.label(text="Final Layer Thickness:")
+                row.prop(patch, "finalLayerThickness", text="")
+                
+                row = grid.row(align=True)
+                row.label(text="Minimum Thickness:")
+                row.prop(patch, "minThickness", text="")
+        else:
+            # Help message when no patches are selected
+            row = patches_box.row()
+            row.label(text="Add patches using the + button", icon="INFO")
+        
+        #--------------------------------------------------
+        # SECTION 4: ADVANCED SETTINGS
+        #--------------------------------------------------
+        adv_box = tools.box()
+        adv_box.label(text="Advanced Settings", icon="TOOL_SETTINGS")
+        
+        # Quality controls in grid layout
+        quality_grid = adv_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        
+        row = quality_grid.row(align=True)
+        row.label(text="Max Face Thickness Ratio:")
+        row.prop(cs, "maxFaceThicknessRatio", text="")
+        
+        row = quality_grid.row(align=True)
+        row.label(text="Surface Normal Smoothing:")
+        row.prop(cs, "nSmoothSurfaceNormals", text="")
+        
+        row = quality_grid.row(align=True)
+        row.label(text="Thickness Smoothing:")
+        row.prop(cs, "nSmoothThickness", text="")
+        
+        # Medial axis analysis settings
+        medial_box = adv_box.box()
+        medial_box.label(text="Medial Axis Analysis", icon="OUTLINER_OB_LIGHTPROBE")
+        
+        grid = medial_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        
+        row = grid.row(align=True)
+        row.label(text="Min Medial Axis Angle:")
+        row.prop(cs, "minMedialAxisAngle", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Max Thickness/Medial Ratio:")
+        row.prop(cs, "maxThicknessToMedialRatio", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Normal Smoothing:")
+        row.prop(cs, "nSmoothNormals", text="")
+        
+        # Mesh shrinking settings
+        shrink_box = adv_box.box()
+        shrink_box.label(text="Mesh Shrinking", icon="FULLSCREEN_ENTER")
+        
+        grid = shrink_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        
+        row = grid.row(align=True)
+        row.label(text="Slip Feature Angle:")
+        row.prop(cs, "slipFeatureAngle", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Relaxation Iterations:")
+        row.prop(cs, "nRelaxIter", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Buffer Cells No Extrude:")
+        row.prop(cs, "nBufferCellsNoExtrude", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Layer Iterations:")
+        row.prop(cs, "nLayerIter", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Relaxed Iterations:")
+        row.prop(cs, "nRelaxedIter", text="")
+        
+        # Special controls
+        row = adv_box.row()
+        row.prop(cs, "additionalReporting", text="Generate Additional Reports")
+        
+        row = adv_box.row()
+        row.prop(cs, "detectExtrusionIsland", text="Detect Extrusion Islands")
+        
+        #--------------------------------------------------
+        # SECTION 5: SYNTAX PREVIEW
+        #--------------------------------------------------
+        preview_box = tools.box()
+        preview_box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
+        
+        # Preview content showing actual OpenFOAM dictionary syntax
+        col = preview_box.column()
+        col.scale_y = 0.85
+        col.label(text="addLayersControls")
+        col.label(text="{")
+        
+        # Basic settings
+        col.label(text=f"    relativeSizes {str(cs.relativeSizes).lower()};")
+        
+        # Layer thickness parameters based on selected mode
+        if 'expansion_final' in cs.thickness_mode:
+            col.label(text=f"    expansionRatio {cs.expansionRatio};")
+            col.label(text=f"    finalLayerThickness {cs.finalLayerThickness};")
+        elif 'expansion_first' in cs.thickness_mode:
+            col.label(text=f"    expansionRatio {cs.expansionRatio};")
+            col.label(text=f"    firstLayerThickness {cs.firstLayerThickness};")
+        elif 'overall_first' in cs.thickness_mode:
+            col.label(text=f"    thickness {cs.overallThickness};")
+            col.label(text=f"    firstLayerThickness {cs.firstLayerThickness};")
+        elif 'overall_final' in cs.thickness_mode:
+            col.label(text=f"    thickness {cs.overallThickness};")
+            col.label(text=f"    finalLayerThickness {cs.finalLayerThickness};")
+        elif 'overall_expansion' in cs.thickness_mode:
+            col.label(text=f"    thickness {cs.overallThickness};")
+            col.label(text=f"    expansionRatio {cs.expansionRatio};")
+        
+        # Common parameters
+        col.label(text=f"    minThickness {cs.minThickness};")
+        col.label(text=f"    featureAngle {cs.featureAngle};")
+        col.label(text=f"    nGrow {cs.nGrow};")
+        col.label(text=f"    detectExtrusionIsland {str(cs.detectExtrusionIsland).lower()};")
+        
+        # Patch-specific settings
+        if len(cs.layer_patches) > 0:
+            col.label(text="")
+            col.label(text="    // Patch-specific settings")
+            col.label(text="    layers")
+            col.label(text="    {")
+            
+            for patch in cs.layer_patches:
+                if patch.nSurfaceLayers > 0:  # Only include patches with layers
+                    col.label(text=f"        {patch.name}")
+                    col.label(text="        {")
+                    col.label(text=f"            nSurfaceLayers {patch.nSurfaceLayers};")
+                    
+                    if patch.custom_expansion:
+                        col.label(text=f"            expansionRatio {patch.expansionRatio};")
+                        col.label(text=f"            finalLayerThickness {patch.finalLayerThickness};")
+                        col.label(text=f"            minThickness {patch.minThickness};")
+                    
+                    col.label(text="        }")
+            
+            col.label(text="    }")
+        
+        # Advanced settings preview
+        col.label(text="")
+        col.label(text="    // Advanced settings")
+        col.label(text=f"    maxFaceThicknessRatio {cs.maxFaceThicknessRatio};")
+        col.label(text=f"    nSmoothSurfaceNormals {cs.nSmoothSurfaceNormals};")
+        col.label(text=f"    nSmoothThickness {cs.nSmoothThickness};")
+        col.label(text=f"    minMedialAxisAngle {cs.minMedialAxisAngle};")
+        col.label(text=f"    maxThicknessToMedialRatio {cs.maxThicknessToMedialRatio};")
+        col.label(text=f"    nSmoothNormals {cs.nSmoothNormals};")
+        col.label(text=f"    slipFeatureAngle {cs.slipFeatureAngle};")
+        col.label(text=f"    nRelaxIter {cs.nRelaxIter};")
+        col.label(text=f"    nBufferCellsNoExtrude {cs.nBufferCellsNoExtrude};")
+        col.label(text=f"    nLayerIter {cs.nLayerIter};")
+        col.label(text=f"    nRelaxedIter {cs.nRelaxedIter};")
+        col.label(text=f"    additionalReporting {str(cs.additionalReporting).lower()};")
+        
+        col.label(text="}")
 
     def meshquality_tab(self, tools, context):
         """Mesh quality settings interface"""
@@ -616,7 +895,6 @@ class snappyhexmesh_menu:
         row.prop(cs, "includeMeshQualityDict", text="Include External Mesh Quality Dictionary")
         
         # Continue adding tooltips to quality settings
-        # ...existing code...
 
     def dictionary_tab(self, tools, context):
         """Dictionary generation settings interface"""
@@ -625,7 +903,6 @@ class snappyhexmesh_menu:
         box.label(text="Dictionary Controls")
         
         # Add tooltips to dictionary settings
-        # ...existing code...
 
 @persistent
 def clean_geometry_items(dummy):

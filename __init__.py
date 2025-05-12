@@ -125,7 +125,10 @@ from venturial.models.snappyhexmesh.layer_operators import (
     LayerPatchSettings,
     VNT_OT_add_layer_patch,
     VNT_OT_remove_layer_patch,
-    LAYER_UL_patches_list
+    VNT_OT_duplicate_layer_patch,
+    VNT_OT_import_boundary_patches,
+    LAYER_UL_patches_list,
+    VNT_OT_configure_layer_settings
 )
 from venturial.models.snappyhexmesh.mesh_quality_operators import (
     MeshQualityProperties,
@@ -270,6 +273,9 @@ classes = (
     LayerPatchSettings,
     VNT_OT_add_layer_patch,
     VNT_OT_remove_layer_patch,
+    VNT_OT_duplicate_layer_patch,
+    VNT_OT_import_boundary_patches,
+    VNT_OT_configure_layer_settings,
     LAYER_UL_patches_list,
     MeshQualityProperties,
     RelaxedMeshQualityProperties,
@@ -458,6 +464,30 @@ def register():
     )
     
     bpy.types.Scene.cast_refinement_regions_index = IntProperty(default=0)
+    
+    # Add this in the register function after the other layer-related properties
+    bpy.types.Scene.show_layer_advanced = BoolProperty(
+        name="Show Advanced Layer Settings",
+        default=False
+    )
+    
+    bpy.types.Scene.layer_strategy = EnumProperty(
+        name="Layer Strategy",
+        description="Strategy for layer addition",
+        items=[
+            ('standard', "Standard", "Standard layer addition approach"),
+            ('conservative', "Conservative", "More cautious approach for complex geometry"),
+            ('aggressive', "Aggressive", "Try harder to add layers even in complex areas")
+        ],
+        default='standard'
+    )
+    
+    # After other layer addition properties
+    bpy.types.Scene.detectExtrusionIsland = BoolProperty(
+        name="Detect Extrusion Islands",
+        description="Detect and extrude islands of cells for better layer coverage",
+        default=True
+    )
     
     # The rest of register function continues...
     bpy.types.Scene.stl_file = StringProperty(name="STL File", default="")
@@ -1267,7 +1297,8 @@ def unregister():
         "nSmoothScale", "errorReduction", "maxNonOrtho", "maxBoundarySkewness",
         "maxInternalSkewness", "maxConcave", "minFlatness", "minVol", "minTetQuality",
         "snappy_dict_preview", "current_surface_tab", "use_gap_level", "gap_level_increment",
-        "handleSnapProblems", "useTopologicalSnapDetection"
+        "handleSnapProblems", "useTopologicalSnapDetection", "show_layer_advanced",
+        "layer_strategy", "detectExtrusionIsland"
     ]
     
     for prop in property_names:

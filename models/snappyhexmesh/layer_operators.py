@@ -4,9 +4,14 @@ from bpy.props import (StringProperty, FloatProperty, IntProperty,
                        BoolProperty, EnumProperty, CollectionProperty, 
                        PointerProperty, FloatVectorProperty)
 
-# Property group for patch-specific layer settings
+#--------------------------------------------------
+# PROPERTY GROUPS
+#--------------------------------------------------
+
 class LayerPatchSettings(PropertyGroup):
-    """Layer settings for individual patches"""
+    """Layer settings for individual patches in boundary layer mesh generation"""
+    
+    # Basic patch identification
     name: StringProperty(
         name="Patch Name",
         description="Name of the patch",
@@ -20,6 +25,7 @@ class LayerPatchSettings(PropertyGroup):
         min=0
     )
     
+    # Custom expansion settings
     custom_expansion: BoolProperty(
         name="Custom Expansion",
         description="Use custom expansion settings for this patch",
@@ -47,19 +53,52 @@ class LayerPatchSettings(PropertyGroup):
         default=0.1,
         min=0.0
     )
+    
+    # Advanced layer distribution settings
+    use_advanced_settings: BoolProperty(
+        name="Use Advanced Settings",
+        description="Directly specify layer distribution parameters",
+        default=False
+    )
+    
+    layer_specification: EnumProperty(
+        name="Layer Specification",
+        description="Method for specifying layer distribution",
+        items=[
+            ('uniform', "Uniform Thickness", "Layers have uniform thickness"),
+            ('gradual', "Gradual Expansion", "Layers expand gradually from wall"),
+            ('custom', "Custom Distribution", "Custom layer thickness distribution")
+        ],
+        default='gradual'
+    )
+    
+    # Mesh quality controls
+    mesh_quality_controls: BoolProperty(
+        name="Custom Mesh Quality",
+        description="Use custom mesh quality settings for this patch",
+        default=False
+    )
+    
+    max_thickness_ratio: FloatProperty(
+        name="Max Thickness Ratio",
+        description="Maximum thickness to local mesh size ratio",
+        default=0.8,
+        min=0.1,
+        max=5.0
+    )
 
-# Property group for main layer addition controls
+
 class LayerAdditionProperties(PropertyGroup):
     """Main properties for snappyHexMesh layer addition controls"""
     
-    # Basic layer settings
+    # Basic layer sizing
     relativeSizes: BoolProperty(
         name="Relative Sizes",
         description="Are thickness parameters relative to cell size or absolute",
         default=True
     )
     
-    # Layer thickness specification options
+    # Layer thickness specification
     thickness_mode: EnumProperty(
         name="Thickness Mode",
         description="Method for specifying layer thickness",
@@ -73,6 +112,7 @@ class LayerAdditionProperties(PropertyGroup):
         default='expansion_final'
     )
     
+    # Expansion parameters
     expansionRatio: FloatProperty(
         name="Expansion Ratio",
         description="Expansion factor for layer mesh",
@@ -81,6 +121,7 @@ class LayerAdditionProperties(PropertyGroup):
         max=10.0
     )
     
+    # Layer thickness parameters
     finalLayerThickness: FloatProperty(
         name="Final Layer Thickness",
         description="Thickness of layer furthest from wall",
@@ -109,7 +150,7 @@ class LayerAdditionProperties(PropertyGroup):
         min=0.0
     )
     
-    # Advanced settings - Feature angle control
+    # Feature handling parameters
     featureAngle: FloatProperty(
         name="Feature Angle",
         description="Angle at which to not extrude surface",
@@ -118,7 +159,7 @@ class LayerAdditionProperties(PropertyGroup):
         max=180.0
     )
     
-    # Growth control
+    # Growth parameters
     nGrow: IntProperty(
         name="Grow Layers",
         description="Number of layers of connected faces to grow",
@@ -126,7 +167,7 @@ class LayerAdditionProperties(PropertyGroup):
         min=0
     )
     
-    # Patch displacement settings
+    # Surface normal parameters
     nSmoothSurfaceNormals: IntProperty(
         name="Smooth Surface Normals",
         description="Smoothing iterations for surface normals",
@@ -141,7 +182,7 @@ class LayerAdditionProperties(PropertyGroup):
         min=0
     )
     
-    # Cell ratio controls
+    # Quality control parameters
     maxFaceThicknessRatio: FloatProperty(
         name="Max Face Thickness Ratio",
         description="Stop layer growth on highly warped cells",
@@ -150,7 +191,7 @@ class LayerAdditionProperties(PropertyGroup):
         max=1.0
     )
     
-    # Medial axis settings
+    # Medial axis parameters
     minMedialAxisAngle: FloatProperty(
         name="Min Medial Axis Angle",
         description="Angle used to pick up medial axis points",
@@ -174,7 +215,7 @@ class LayerAdditionProperties(PropertyGroup):
         min=0
     )
     
-    # Mesh shrinking
+    # Mesh convergence parameters
     slipFeatureAngle: FloatProperty(
         name="Slip Feature Angle",
         description="Angle above which mesh can slip at non-patched sides",
@@ -211,15 +252,31 @@ class LayerAdditionProperties(PropertyGroup):
         min=0
     )
     
+    # Output control
     additionalReporting: BoolProperty(
         name="Additional Reporting",
         description="Report problematic face centers",
         default=False
     )
+    
+    # Layer generation strategy
+    layer_strategy: EnumProperty(
+        name="Layer Strategy",
+        description="Strategy for layer addition",
+        items=[
+            ('standard', "Standard", "Standard layer addition approach"),
+            ('conservative', "Conservative", "More cautious approach for complex geometry"),
+            ('aggressive', "Aggressive", "Try harder to add layers even in complex areas")
+        ],
+        default='standard'
+    )
 
-# Operator to add a new layer patch setting
+#--------------------------------------------------
+# OPERATORS
+#--------------------------------------------------
+
 class VNT_OT_add_layer_patch(Operator):
-    """Add a new patch for layer settings"""
+    """Add a new patch for boundary layer meshing"""
     bl_idname = "vnt.add_layer_patch"
     bl_label = "Add Layer Patch"
     
@@ -229,9 +286,23 @@ class VNT_OT_add_layer_patch(Operator):
         default=""
     )
     
+    n_surface_layers: IntProperty(
+        name="Surface Layers",
+        description="Number of surface layers to add",
+        default=1,
+        min=0
+    )
+    
     def execute(self, context):
+        # Create new patch and set initial properties
         item = context.scene.layer_patches.add()
         item.name = self.patch_name
+        item.nSurfaceLayers = self.n_surface_layers
+        
+        # Auto-select the new item
+        context.scene.layer_patches_index = len(context.scene.layer_patches) - 1
+        
+        self.report({'INFO'}, f"Added patch '{self.patch_name}' with {self.n_surface_layers} surface layers")
         return {'FINISHED'}
     
     def invoke(self, context, event):
@@ -240,31 +311,243 @@ class VNT_OT_add_layer_patch(Operator):
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "patch_name")
+        layout.prop(self, "n_surface_layers")
 
-# Operator to remove a layer patch setting
+
 class VNT_OT_remove_layer_patch(Operator):
     """Remove the selected layer patch"""
     bl_idname = "vnt.remove_layer_patch"
     bl_label = "Remove Layer Patch"
     
+    @classmethod
+    def poll(cls, context):
+        return context.scene.layer_patches and context.scene.layer_patches_index >= 0
+    
     def execute(self, context):
         cs = context.scene
         if len(cs.layer_patches) > 0 and cs.layer_patches_index >= 0:
+            # Get name for reporting
+            patch_name = cs.layer_patches[cs.layer_patches_index].name
+            
+            # Remove item and update index
             cs.layer_patches.remove(cs.layer_patches_index)
             if cs.layer_patches_index > 0:
                 cs.layer_patches_index -= 1
+                
+            self.report({'INFO'}, f"Removed patch '{patch_name}'")
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
+
+
+class VNT_OT_duplicate_layer_patch(Operator):
+    """Duplicate the selected layer patch with all its settings"""
+    bl_idname = "vnt.duplicate_layer_patch"
+    bl_label = "Duplicate Layer Patch"
+    
+    @classmethod
+    def poll(cls, context):
+        return context.scene.layer_patches and context.scene.layer_patches_index >= 0
+    
+    def execute(self, context):
+        cs = context.scene
+        if len(cs.layer_patches) > 0 and cs.layer_patches_index >= 0:
+            # Get source and create duplicate
+            source = cs.layer_patches[cs.layer_patches_index]
+            new_patch = cs.layer_patches.add()
+            
+            # Copy all settings
+            new_patch.name = f"{source.name}_copy"
+            new_patch.nSurfaceLayers = source.nSurfaceLayers
+            new_patch.custom_expansion = source.custom_expansion
+            new_patch.expansionRatio = source.expansionRatio
+            new_patch.finalLayerThickness = source.finalLayerThickness
+            new_patch.minThickness = source.minThickness
+            
+            # Select the new patch
+            cs.layer_patches_index = len(cs.layer_patches) - 1
+            
+            self.report({'INFO'}, f"Duplicated patch '{source.name}' to '{new_patch.name}'")
         return {'FINISHED'}
 
-# UI List for layer patches
+
+class VNT_OT_import_boundary_patches(Operator):
+    """Import patches from boundary conditions in BlockMesh dictionary"""
+    bl_idname = "vnt.import_boundary_patches"
+    bl_label = "Import from Boundaries"
+    
+    filter_walls: BoolProperty(
+        name="Only Wall Boundaries",
+        description="Only import boundaries with wall type",
+        default=True
+    )
+    
+    def execute(self, context):
+        cs = context.scene
+        
+        # Sample boundaries for demonstration
+        # In real implementation, these would come from BlockMesh settings
+        sample_boundaries = [
+            ("inlet", "patch"),
+            ("outlet", "patch"),
+            ("walls", "wall"),
+            ("top", "wall"),
+            ("bottom", "wall")
+        ]
+        
+        # Process boundaries
+        patches_added = 0
+        for name, btype in sample_boundaries:
+            # Skip non-wall patches if filter is enabled
+            if self.filter_walls and btype != "wall":
+                continue
+                
+            # Only add if patch doesn't already exist
+            exists = False
+            for patch in cs.layer_patches:
+                if patch.name == name:
+                    exists = True
+                    break
+            
+            # Create new patch
+            if not exists:
+                new_patch = cs.layer_patches.add()
+                new_patch.name = name
+                new_patch.nSurfaceLayers = 3 if btype == "wall" else 0
+                patches_added += 1
+        
+        self.report({'INFO'}, f"Added {patches_added} patches from boundaries")
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "filter_walls")
+
+
+class VNT_OT_configure_layer_settings(Operator):
+    """Configure advanced layer addition settings"""
+    bl_idname = "vnt.configure_layer_settings"
+    bl_label = "Layer Addition Settings"
+    
+    changed: BoolProperty(default=False)
+    
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        
+        # Basic settings section
+        box = layout.box()
+        box.label(text="Basic Settings", icon="PREFERENCES")
+        
+        row = box.row()
+        row.prop(scene, "relativeSizes")
+        
+        # Thickness specification
+        box.label(text="Layer Thickness Specification:")
+        row = box.row(align=True)
+        row.prop(scene, "thickness_mode", text="")
+        
+        # Show relevant thickness controls based on selected mode
+        if 'expansion' in scene.thickness_mode:
+            row = box.row(align=True)
+            row.prop(scene, "expansionRatio")
+        
+        if 'overall' in scene.thickness_mode:
+            row = box.row(align=True)
+            row.prop(scene, "overallThickness")
+            
+        if 'final' in scene.thickness_mode:
+            row = box.row(align=True)
+            row.prop(scene, "finalLayerThickness")
+            
+        if 'first' in scene.thickness_mode:
+            row = box.row(align=True)
+            row.prop(scene, "firstLayerThickness")
+        
+        row = box.row()
+        row.prop(scene, "minThickness")
+        
+        # Advanced settings
+        adv_box = layout.box()
+        adv_box.label(text="Advanced Settings", icon="TOOL_SETTINGS")
+        
+        # Layer strategy
+        row = adv_box.row()
+        row.label(text="Layer Addition Strategy:")
+        row = adv_box.row()
+        row.prop(scene, "layer_strategy", text="")
+        
+        # Feature handling
+        row = adv_box.row()
+        row.label(text="Feature Handling:")
+        row = adv_box.row()
+        row.prop(scene, "featureAngle")
+        row = adv_box.row()
+        row.prop(scene, "maxFaceThicknessRatio")
+        
+        # Patch displacement
+        row = adv_box.row()
+        row.label(text="Patch Displacement:")
+        col = adv_box.column(align=True)
+        col.prop(scene, "nSmoothSurfaceNormals")
+        col.prop(scene, "nSmoothThickness")
+        
+        # Medial axis
+        row = adv_box.row()
+        row.label(text="Medial Axis Analysis:")
+        col = adv_box.column(align=True)
+        col.prop(scene, "minMedialAxisAngle")
+        col.prop(scene, "maxThicknessToMedialRatio")
+        col.prop(scene, "nSmoothNormals")
+        
+        # Mesh shrinking
+        row = adv_box.row()
+        row.label(text="Mesh Shrinking:")
+        col = adv_box.column(align=True)
+        col.prop(scene, "slipFeatureAngle")
+        col.prop(scene, "nRelaxIter")
+        col.prop(scene, "nBufferCellsNoExtrude")
+        col.prop(scene, "nLayerIter")
+        col.prop(scene, "nRelaxedIter")
+        
+        row = adv_box.row()
+        row.prop(scene, "additionalReporting")
+    
+    def execute(self, context):
+        if self.changed:
+            self.report({'INFO'}, "Layer settings updated")
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=450)
+
+#--------------------------------------------------
+# UI LIST CLASSES
+#--------------------------------------------------
+
 class LAYER_UL_patches_list(bpy.types.UIList):
+    """UI list for displaying and selecting layer patches"""
+    
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            row = layout.row(align=True)
-            row.prop(item, "name", text="", emboss=False, icon="SURFACE_DATA")
-            row.label(text=f"Layers: {item.nSurfaceLayers}")
+            split = layout.split(factor=0.7)
+            
+            # Name display with appropriate icon
+            row = split.row(align=True)
+            icon = "OUTLINER_OB_SURFACE" if item.nSurfaceLayers > 0 else "X"
+            row.prop(item, "name", text="", emboss=False, icon=icon)
+            
+            # Info section with layer count and custom indicator
+            right_col = split.row(align=True)
+            right_col.label(text=f"Layers: {item.nSurfaceLayers}")
             
             if item.custom_expansion:
-                icon = "CHECKMARK"
-            else:
-                icon = "BLANK1"
-            row.label(text="", icon=icon)
+                right_col.label(text="", icon="MODIFIER_ON")
+            
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text=item.name)

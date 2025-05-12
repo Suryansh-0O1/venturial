@@ -93,7 +93,8 @@ LAYER_TOOLTIPS = {
     "nBufferCellsNoExtrude": "Number of buffer cells with no extrusion. Creates a buffer zone for smoother layer transitions.",
     "nLayerIter": "Maximum number of layer addition iterations. Higher values may improve quality but increase computational time.",
     "nRelaxedIter": "Number of iterations after which the algorithm switches to relaxed mesh quality constraints.",
-    "additionalReporting": "Generate detailed reports about problematic face centers during layer addition. Useful for debugging."
+    "additionalReporting": "Generate detailed reports about problematic face centers during layer addition. Useful for debugging.",
+    "detectExtrusionIsland": "Detect and extrude islands of disconnected cells, which can be created when adding layers. Helps improve layer coverage in complex geometries."
 }
 
 # Mesh quality tooltips
