@@ -70,7 +70,7 @@ class snappyhexmesh_menu:
         col_button.operator("vnt.delete_geometry", text="", icon="REMOVE")
 
     def castellated_tab(self, tools, context):
-        """Castellated mesh creation settings interface"""
+        """Castellated mesh creation settings interface with tabs for better organization"""
         cs = context.scene
         box = tools.box()
         box.label(text="Castellation Options")
@@ -81,6 +81,30 @@ class snappyhexmesh_menu:
         
         if not cs.castellatedMesh:
             return
+        
+        row = tools.row(align=True)
+        row.scale_y = 1.2
+        row.prop(cs, "castellated_tab", expand=True)
+        
+        tools.separator(factor=0.5)
+        
+        # Display the selected tab
+        if cs.castellated_tab == 'GENERAL':
+            self.castellated_general_tab(tools, context)
+        elif cs.castellated_tab == 'FEATURES':
+            self.castellated_features_tab(tools, context)
+        elif cs.castellated_tab == 'SURFACES':
+            self.castellated_surfaces_tab(tools, context)
+        elif cs.castellated_tab == 'REGIONS':
+            self.castellated_regions_tab(tools, context)
+        elif cs.castellated_tab == 'ADVANCED':
+            self.castellated_advanced_tab(tools, context)
+        elif cs.castellated_tab == 'PREVIEW':
+            self.castellated_preview_tab(tools, context)
+    
+    def castellated_general_tab(self, tools, context):
+        """General settings tab for castellated mesh"""
+        cs = context.scene
         
         # --- SECTION 1: GENERAL REFINEMENT PARAMETERS ---
         ref_box = tools.box()
@@ -110,8 +134,11 @@ class snappyhexmesh_menu:
         row = col.row()
         row.label(text="Cells Between Levels:")
         row.prop(cs, "nCellsBetweenLevels", text="")
+
+    def castellated_features_tab(self, tools, context):
+        """Feature edge refinement tab for castellated mesh"""
+        cs = context.scene
         
-        # --- SECTION 2: FEATURE EDGE REFINEMENT ---
         feature_box = tools.box()
         feature_box.label(text="Feature Edge Refinement", icon="EDGESEL")
         
@@ -119,7 +146,7 @@ class snappyhexmesh_menu:
         row = feature_box.row()
         col = row.column()
         col.template_list("CAST_UL_features_list", "", cs, "cast_features", 
-                          cs, "cast_features_index", rows=2)
+                          cs, "cast_features_index", rows=3)
         
         col_buttons = row.column(align=True)
         col_buttons.operator("vnt.add_feature", text="", icon="ADD")
@@ -202,8 +229,16 @@ class snappyhexmesh_menu:
                     syntax_box.label(text=f"levels ({pairs_text});")
                 else:
                     syntax_box.label(text="levels ();  (Empty - add pairs above)")
+        else:
+            info_row = feature_box.row()
+            info_row.alignment = 'CENTER'
+            info_row.label(text="No features defined. Click '+' to add feature edges.", icon="INFO")
+    
+    def castellated_surfaces_tab(self, tools, context):
+        """Surface refinement tab for castellated mesh"""
+        cs = context.scene
         
-        # --- SECTION 3: SURFACE REFINEMENT ---
+        # --- SECTION: SURFACE REFINEMENT ---
         surface_box = tools.box()
         surface_box.label(text="Surface Refinement", icon="SURFACE_DATA")
         
@@ -351,20 +386,12 @@ class snappyhexmesh_menu:
                 else:
                     help_row = region_box.row()
                     help_row.label(text="No regions defined - click '+' to add regions", icon="INFO")
+
+    def castellated_regions_tab(self, tools, context):
+        """Region refinement tab for castellated mesh"""
+        cs = context.scene
         
-        # --- SECTION 4: FEATURE ANGLE SETTINGS ---
-        feature_angle_box = tools.box()
-        feature_angle_box.label(text="Feature Angle Settings", icon="MOD_BEVEL")
-        
-        row = feature_angle_box.row(align=True)
-        row.label(text="Resolve Feature Angle:")
-        row.prop(cs, "resolveFeatureAngle", text="")
-        
-        row = feature_angle_box.row(align=True)
-        row.label(text="Planar Angle:")
-        row.prop(cs, "planarAngle", text="")
-        
-        # --- SECTION 5: REGION REFINEMENT ---
+        # --- SECTION: REGION REFINEMENT ---
         region_refine_box = tools.box()
         region_refine_box.label(text="Region Refinement", icon="MESH_CUBE")
         
@@ -448,8 +475,24 @@ class snappyhexmesh_menu:
         elif len(cs.cast_refinement_regions) == 0:
             row = region_refine_box.row()
             row.label(text="No refinement regions defined - click '+' to add", icon="INFO")
+
+    def castellated_advanced_tab(self, tools, context):
+        """Advanced settings tab for castellated mesh"""
+        cs = context.scene
         
-        # --- SECTION 6: MESH SELECTION ---
+        # --- SECTION 1: FEATURE ANGLE SETTINGS ---
+        feature_angle_box = tools.box()
+        feature_angle_box.label(text="Feature Angle Settings", icon="MOD_BEVEL")
+        
+        row = feature_angle_box.row(align=True)
+        row.label(text="Resolve Feature Angle:")
+        row.prop(cs, "resolveFeatureAngle", text="")
+        
+        row = feature_angle_box.row(align=True)
+        row.label(text="Planar Angle:")
+        row.prop(cs, "planarAngle", text="")
+        
+        # --- SECTION 2: MESH SELECTION ---
         mesh_sel_box = tools.box()
         mesh_sel_box.label(text="Mesh Selection", icon="ORIENTATION_CURSOR")
         
@@ -475,9 +518,162 @@ class snappyhexmesh_menu:
         
         row = advanced_box.row()
         row.prop(cs, "useTopologicalSnapDetection", text="Use Topological Snap Detection")
+    
+    def castellated_preview_tab(self, tools, context):
+        """Preview tab showing the generated castellated mesh dictionary"""
+        cs = context.scene
+        
+        preview_box = tools.box()
+        preview_box.label(text="Dictionary Preview", icon="TEXT")
+        
+        # Create a scrollable area for the preview
+        preview_col = preview_box.column()
+        preview_col.scale_y = 0.85
+        
+        # Dictionary header
+        preview_col.label(text="castellatedMeshControls")
+        preview_col.label(text="{")
+        
+        # Basic parameters
+        preview_col.label(text=f"    // Basic parameters")
+        preview_col.label(text=f"    maxLocalCells {cs.maxLocalCells};")
+        preview_col.label(text=f"    maxGlobalCells {cs.maxGlobalCells};")
+        preview_col.label(text=f"    minRefinementCells {cs.minRefinementCells};")
+        preview_col.label(text=f"    maxLoadUnbalance {cs.maxLoadUnbalance};")
+        preview_col.label(text=f"    nCellsBetweenLevels {cs.nCellsBetweenLevels};")
+        
+        # Features section
+        if len(cs.cast_features) > 0:
+            preview_col.label(text="")
+            preview_col.label(text="    // Feature refinement")
+            preview_col.label(text="    features")
+            preview_col.label(text="    (")
+            
+            for i, feature in enumerate(cs.cast_features):
+                if not feature.file:
+                    continue
+                    
+                preview_col.label(text=f"        {{")
+                preview_col.label(text=f"            file \"{os.path.basename(feature.file)}\";")
+                
+                # Format levels based on refinement mode
+                if feature.refinement_mode == 'uniform':
+                    preview_col.label(text=f"            levels (({feature.level} {feature.level}));")
+                elif feature.refinement_mode == 'single_distance':
+                    preview_col.label(text=f"            levels (({feature.distance} {feature.level_at_distance}));")
+                elif feature.refinement_mode == 'multi_distance':
+                    if len(feature.distance_level_pairs) > 0:
+                        pairs = " ".join([f"({p.distance} {p.level})" for p in feature.distance_level_pairs])
+                        preview_col.label(text=f"            levels ({pairs});")
+                    else:
+                        preview_col.label(text="            levels ();")
+                
+                preview_col.label(text=f"        }}")
+            
+            preview_col.label(text="    );")
+        
+        # Refinement surfaces
+        if len(cs.cast_refinement_surfaces) > 0:
+            preview_col.label(text="")
+            preview_col.label(text="    // Surface refinement")
+            preview_col.label(text="    refinementSurfaces")
+            preview_col.label(text="    {")
+            
+            for surface in cs.cast_refinement_surfaces:
+                name = surface.name
+                if surface.source_type == 'geometry' and surface.geometry_object:
+                    name = surface.geometry_object
+                    
+                preview_col.label(text=f"        {name}")
+                preview_col.label(text="        {")
+                preview_col.label(text=f"            level ({surface.min_level} {surface.max_level});")
+                
+                # Regions if any
+                if len(surface.regions) > 0:
+                    preview_col.label(text="")
+                    preview_col.label(text="            regions")
+                    preview_col.label(text="            {")
+                    
+                    for region in surface.regions:
+                        preview_col.label(text=f"                {region.name}")
+                        preview_col.label(text="                {")
+                        preview_col.label(text=f"                    level ({region.min_level} {region.max_level});")
+                        preview_col.label(text="                }")
+                    
+                    preview_col.label(text="            }")
+                
+                # Zones if defined
+                if surface.face_zone or surface.cell_zone:
+                    preview_col.label(text="")
+                    if surface.face_zone:
+                        preview_col.label(text=f"            faceZone {surface.face_zone};")
+                    if surface.cell_zone:
+                        preview_col.label(text=f"            cellZone {surface.cell_zone};")
+                        preview_col.label(text=f"            cellZoneInside {surface.cell_zone_inside};")
+                
+                preview_col.label(text="        }")
+            
+            preview_col.label(text="    }")
+        
+        # Refinement regions
+        if len(cs.cast_refinement_regions) > 0:
+            preview_col.label(text="")
+            preview_col.label(text="    // Region refinement")
+            preview_col.label(text="    refinementRegions")
+            preview_col.label(text="    {")
+            
+            for region in cs.cast_refinement_regions:
+                # Get region name
+                name = region.name
+                if region.source_type == 'geometry' and region.geometry_object:
+                    name = region.geometry_object
+                
+                preview_col.label(text=f"        {name}")
+                preview_col.label(text="        {")
+                
+                # Mode-specific settings
+                if region.mode == 'inside':
+                    preview_col.label(text=f"            mode inside;")
+                    preview_col.label(text=f"            levels (({region.level} {region.level}));")
+                else:  # distance mode
+                    preview_col.label(text=f"            mode distance;")
+                    
+                    if region.use_advanced_distance and len(region.distance_level_pairs) > 0:
+                        pairs = " ".join([f"({p.distance} {p.level})" for p in region.distance_level_pairs])
+                        preview_col.label(text=f"            levels ({pairs});")
+                    else:
+                        preview_col.label(text=f"            levels (({region.distance} {region.level_at_distance}));")
+                
+                preview_col.label(text="        }")
+            
+            preview_col.label(text="    }")
+        
+        # Location in mesh
+        preview_col.label(text="")
+        preview_col.label(text="    // Mesh selection")
+        preview_col.label(text=f"    locationInMesh ({cs.locationInMeshX} {cs.locationInMeshY} {cs.locationInMeshZ});")
+        preview_col.label(text=f"    allowFreeStandingZoneFaces {str(cs.allowFreeStandingZoneFaces).lower()};")
+        
+        # Feature angle settings
+        preview_col.label(text="")
+        preview_col.label(text="    // Feature handling")
+        preview_col.label(text=f"    resolveFeatureAngle {cs.resolveFeatureAngle};")
+        preview_col.label(text=f"    planarAngle {cs.planarAngle};")
+        
+        # Advanced options
+        if cs.handleSnapProblems or cs.useTopologicalSnapDetection:
+            preview_col.label(text="")
+            preview_col.label(text="    // Advanced options")
+            if cs.handleSnapProblems:
+                preview_col.label(text="    handleSnapProblems true;")
+            if cs.useTopologicalSnapDetection:
+                preview_col.label(text="    useTopologicalSnapDetection true;")
+        
+        # Close dictionary
+        preview_col.label(text="}")
 
     def snap_tab(self, tools, context):
-        """Snap settings interface"""
+        """Snap settings interface with tabs for better organization"""
         cs = context.scene
         
         # Master enable switch with icon
@@ -493,6 +689,24 @@ class snappyhexmesh_menu:
             info_row.alignment = 'CENTER'
             info_row.label(text="Surface snapping is disabled", icon="INFO")
             return
+        
+        row = tools.row(align=True)
+        row.scale_y = 1.2
+        row.prop(cs, "snap_tab", expand=True)
+        
+        tools.separator(factor=0.5)
+        
+        # Display the selected tab
+        if cs.snap_tab == 'BASIC':
+            self.snap_basic_tab(tools, context)
+        elif cs.snap_tab == 'FEATURES':
+            self.snap_features_tab(tools, context)
+        elif cs.snap_tab == 'PREVIEW':
+            self.snap_preview_tab(tools, context)
+    
+    def snap_basic_tab(self, tools, context):
+        """Basic snap settings tab"""
+        cs = context.scene
         
         # Basic snapping parameters section
         basic_box = tools.box()
@@ -518,29 +732,17 @@ class snappyhexmesh_menu:
         row.label(text="Relax Iterations:")
         row.prop(cs, "nRelaxIter", text="")
         
+    def snap_features_tab(self, tools, context):
+        """Feature snapping settings tab"""
+        cs = context.scene
+        
         # Feature snapping section
         feature_box = tools.box()
+        feature_box.label(text="Feature Edge Snapping", icon="EDGESEL")
         
-        # Header row with feature snapping toggle
-        header_row = feature_box.row(align=True)
-        header_row.scale_y = 1.2
-        
-        # Left side with label
-        label_col = header_row.column()
-        label_col.label(text="Feature Edge Snapping", icon="EDGESEL")
-        
-        # Right side with enable/disable button
-        button_col = header_row.column(align=True)
-        button_col.alignment = 'RIGHT'
-        
-        if cs.useFeatureSnap:
-            button_col.alert = True
-        
-        button_col.operator(
-            "vnt.select_unselect_allsnap", 
-            text="", 
-            icon="CHECKMARK" if not cs.useFeatureSnap else "PANEL_CLOSE"
-        ).select_all = not cs.useFeatureSnap
+        # Feature snapping toggle
+        row = feature_box.row()
+        row.prop(cs, "useFeatureSnap", text="Enable Feature Edge Snapping")
         
         # Feature snapping options - only show if enabled
         if cs.useFeatureSnap:
@@ -567,8 +769,11 @@ class snappyhexmesh_menu:
             row = methods_box.row()
             row.prop(cs, "multiRegionFeatureSnap", 
                     text="Multi-region Feature Detection")
+    
+    def snap_preview_tab(self, tools, context):
+        """Preview tab for snap settings"""
+        cs = context.scene
         
-        # Syntax preview box
         preview_box = tools.box()
         preview_box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         
@@ -593,7 +798,7 @@ class snappyhexmesh_menu:
         col.label(text="}")
 
     def layercontrol_tab(self, tools, context):
-        """Layer addition settings interface for boundary layer mesh generation"""
+        """Layer addition settings interface with tabs for better organization"""
         cs = context.scene
         
         # Master enable switch with icon
@@ -610,10 +815,29 @@ class snappyhexmesh_menu:
             info_row.alignment = 'CENTER'
             info_row.label(text="Layer addition is disabled", icon="INFO")
             return
+            
+        row = tools.row(align=True)
+        row.scale_y = 1.2 
+        row.prop(cs, "layer_tab", expand=True)
         
-        #--------------------------------------------------
-        # SECTION 1: BASIC LAYER PARAMETERS
-        #--------------------------------------------------
+        tools.separator(factor=0.5)
+        
+        # Display the selected tab
+        if cs.layer_tab == 'BASIC':
+            self.layer_basic_tab(tools, context)
+        elif cs.layer_tab == 'FEATURES':
+            self.layer_features_tab(tools, context)
+        elif cs.layer_tab == 'PATCHES':
+            self.layer_patches_tab(tools, context)
+        elif cs.layer_tab == 'ADVANCED':
+            self.layer_advanced_tab(tools, context)
+        elif cs.layer_tab == 'PREVIEW':
+            self.layer_preview_tab(tools, context)
+    
+    def layer_basic_tab(self, tools, context):
+        """Basic layer addition settings tab"""
+        cs = context.scene
+        
         basic_box = tools.box()
         basic_box.label(text="Basic Layer Parameters", icon="SETTINGS")
         
@@ -657,10 +881,11 @@ class snappyhexmesh_menu:
         row = grid.row(align=True)
         row.label(text="Minimum Thickness:")
         row.prop(cs, "minThickness", text="")
+    
+    def layer_features_tab(self, tools, context):
+        """Feature handling for layer addition"""
+        cs = context.scene
         
-        #--------------------------------------------------
-        # SECTION 2: FEATURE HANDLING
-        #--------------------------------------------------
         feature_box = tools.box()
         feature_box.label(text="Feature Handling", icon="EDGESEL")
         
@@ -675,9 +900,14 @@ class snappyhexmesh_menu:
         row.label(text="Growth Layers:")
         row.prop(cs, "nGrow", text="")
         
-        #--------------------------------------------------
-        # SECTION 3: PATCH-SPECIFIC SETTINGS
-        #--------------------------------------------------
+        # Special feature handling options
+        row = feature_box.row()
+        row.prop(cs, "detectExtrusionIsland", text="Detect Extrusion Islands")
+    
+    def layer_patches_tab(self, tools, context):
+        """Patch-specific layer settings tab"""
+        cs = context.scene
+        
         patches_box = tools.box()
         patches_header = patches_box.row(align=True)
         patches_header.label(text="Patch-Specific Settings", icon="SURFACE_DATA")
@@ -732,10 +962,11 @@ class snappyhexmesh_menu:
             # Help message when no patches are selected
             row = patches_box.row()
             row.label(text="Add patches using the + button", icon="INFO")
+    
+    def layer_advanced_tab(self, tools, context):
+        """Advanced layer addition settings"""
+        cs = context.scene
         
-        #--------------------------------------------------
-        # SECTION 4: ADVANCED SETTINGS
-        #--------------------------------------------------
         adv_box = tools.box()
         adv_box.label(text="Advanced Settings", icon="TOOL_SETTINGS")
         
@@ -801,13 +1032,11 @@ class snappyhexmesh_menu:
         # Special controls
         row = adv_box.row()
         row.prop(cs, "additionalReporting", text="Generate Additional Reports")
+    
+    def layer_preview_tab(self, tools, context):
+        """Preview tab for layer addition settings"""
+        cs = context.scene
         
-        row = adv_box.row()
-        row.prop(cs, "detectExtrusionIsland", text="Detect Extrusion Islands")
-        
-        #--------------------------------------------------
-        # SECTION 5: SYNTAX PREVIEW
-        #--------------------------------------------------
         preview_box = tools.box()
         preview_box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         
@@ -815,7 +1044,7 @@ class snappyhexmesh_menu:
         col = preview_box.column()
         col.scale_y = 0.85
         col.label(text="addLayersControls")
-        col.label(text="{")
+        col.label(text="{")  # Fixed: Added quotes to make it a string
         
         # Basic settings
         col.label(text=f"    relativeSizes {str(cs.relativeSizes).lower()};")
@@ -884,45 +1113,79 @@ class snappyhexmesh_menu:
         col.label(text="}")
 
     def meshquality_tab(self, tools, context):
-        """
-        Mesh quality settings interface for SnappyHexMesh.
-        
-        Provides controls for setting mesh quality constraints including standard 
-        quality metrics, advanced settings, relaxed criteria, and error handling.
-        """
+        """Mesh quality settings interface with tabs for better organization"""
         cs = context.scene
         mesh_quality = cs.mesh_quality
-        relaxed = cs.relaxed_mesh_quality
         
         # Master section header
         main_box = tools.box()
         main_box.label(text="Mesh Quality Controls", icon="SETTINGS")
         
-        #--------------------------------------------------
-        # SECTION 1: EXTERNAL DICTIONARY OPTION
-        #--------------------------------------------------
-        include_box = tools.box()
-        include_box.label(text="Mesh Quality Dictionary", icon="FILE_TEXT")
-        
-        row = include_box.row()
-        row.prop(mesh_quality, "includeMeshQualityDict", text="Include External Mesh Quality Dictionary")
+        # External dictionary option at the top level with better formatting
+        row = main_box.row(align=True)
+        row.prop(mesh_quality, "includeMeshQualityDict", text="Use External Mesh Quality Dictionary")
         
         if mesh_quality.includeMeshQualityDict:
-            row = include_box.row(align=True)
-            row.prop(mesh_quality, "meshQualityDictPath", text="")
-            row.operator("vnt.select_mesh_quality_dict", text="", icon="FILE_FOLDER")
+            dict_row = main_box.row(align=True)
+            dict_row.prop(mesh_quality, "meshQualityDictPath", text="")
+            dict_row.operator("vnt.select_mesh_quality_dict", text="", icon="FILE_FOLDER")
             
-            info_row = include_box.row()
-            info_row.label(text="External dictionary will override settings below", icon="INFO")
+            info_row = main_box.row()
+            info_row.alignment = 'CENTER'
+            info_row.label(text="External dictionary will be used - only error settings available", icon="INFO")
+            info_row.scale_y = 1.2
         
-        #--------------------------------------------------
-        # SECTION 2: PRIMARY QUALITY CONSTRAINTS
-        #--------------------------------------------------
+        tools.separator(factor=1.0)
+        
+        row = tools.row(align=True)
+        row.scale_y = 1.2 
+        
+        # Create a sub-row for each tab to control enabling/disabling
+        for tab_id, tab_name in [
+            ('STANDARD', "Standard"),
+            ('ADVANCED', "Advanced"),
+            ('ERROR', "Error"),
+            ('PREVIEW', "Preview")
+        ]:
+            # Determine if this tab should be enabled
+            enabled = True
+            if mesh_quality.includeMeshQualityDict:
+                if tab_id not in ['ERROR', 'PREVIEW']:
+                    enabled = False
+            
+            # Create a sub-row that can be enabled/disabled
+            sub = row.row(align=True)
+            sub.enabled = enabled
+            
+            # Add the tab button
+            sub.prop_enum(cs, "quality_tab", tab_id, text=tab_name)
+        
+        # Fix: Only force tab switch if not already on an allowed tab
+        if mesh_quality.includeMeshQualityDict and cs.quality_tab not in ['ERROR', 'PREVIEW']:
+            cs.quality_tab = 'ERROR'  # Default to ERROR tab when using external dict
+        
+        tools.separator(factor=0.5)
+        
+        # Display the selected tab
+        if cs.quality_tab == 'STANDARD':
+            self.quality_standard_tab(tools, context)
+        elif cs.quality_tab == 'ADVANCED':
+            self.quality_advanced_tab(tools, context)
+        elif cs.quality_tab == 'ERROR':
+            self.quality_error_tab(tools, context)
+        elif cs.quality_tab == 'PREVIEW':
+            self.quality_preview_tab(tools, context)
+    
+    def quality_standard_tab(self, tools, context):
+        """Standard quality constraints tab"""
+        cs = context.scene
+        mesh_quality = cs.mesh_quality
+        
         quality_box = tools.box()
         quality_box.label(text="Standard Quality Constraints", icon="CONSTRAINT")
         
-        # Basic mesh quality settings in a grid layout
-        grid = quality_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        grid = quality_box.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False)
+        grid.scale_y = 1.1
         
         # Non-orthogonality
         row = grid.row(align=True)
@@ -955,80 +1218,62 @@ class snappyhexmesh_menu:
         row = grid.row(align=True)
         row.label(text="Min Tet Quality:")
         row.prop(mesh_quality, "minTetQuality", text="")
+    
+    def quality_advanced_tab(self, tools, context):
+        """Advanced quality settings tab"""
+        cs = context.scene
+        mesh_quality = cs.mesh_quality
         
-        #--------------------------------------------------
-        # SECTION 3: ADVANCED QUALITY SETTINGS
-        #--------------------------------------------------
         adv_box = tools.box()
-        row = adv_box.row(align=True)
-        icon = "DISCLOSURE_TRI_DOWN" if mesh_quality.show_advanced_quality else "DISCLOSURE_TRI_RIGHT"
-        row.prop(mesh_quality, "show_advanced_quality", text="Advanced Quality Settings", icon=icon, toggle=True)
+        adv_box.label(text="Advanced Quality Settings", icon="PREFERENCES")
         
-        if mesh_quality.show_advanced_quality:
-            grid = adv_box.grid_flow(row_major=True, columns=2, even_columns=True)
-            
-            row = grid.row(align=True)
-            row.label(text="Min Vol Collapse Ratio:")
-            row.prop(mesh_quality, "minVolCollapseRatio", text="")
-            
-            row = grid.row(align=True)
-            row.label(text="Min Area:")
-            row.prop(mesh_quality, "minArea", text="")
-            
-            row = grid.row(align=True)
-            row.label(text="Min Twist:")
-            row.prop(mesh_quality, "minTwist", text="")
-            
-            row = grid.row(align=True)
-            row.label(text="Min Determinant:")
-            row.prop(mesh_quality, "minDeterminant", text="")
-            
-            row = grid.row(align=True)
-            row.label(text="Min Face Weight:")
-            row.prop(mesh_quality, "minFaceWeight", text="")
-            
-            row = grid.row(align=True)
-            row.label(text="Min Vol Ratio:")
-            row.prop(mesh_quality, "minVolRatio", text="")
-            
-            row = grid.row(align=True)
-            row.label(text="Min Triangle Twist:")
-            row.prop(mesh_quality, "minTriangleTwist", text="")
-        
-        #--------------------------------------------------
-        # SECTION 4: RELAXED QUALITY SETTINGS
-        #--------------------------------------------------
-        relaxed_box = tools.box()
-        relaxed_box.label(text="Relaxed Quality Settings", icon="CURVES_EASING_EASE")
-        
-        help_row = relaxed_box.row()
-        help_row.label(text="These settings are used after reaching nRelaxedIter iterations", icon="INFO")
-        
-        grid = relaxed_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        grid = adv_box.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False)
+        grid.scale_y = 1.1
         
         row = grid.row(align=True)
-        row.label(text="Relaxed Max Non-Ortho:")
-        row.prop(relaxed, "maxNonOrtho", text="")
+        row.label(text="Min Vol Collapse Ratio:")
+        row.prop(mesh_quality, "minVolCollapseRatio", text="")
         
         row = grid.row(align=True)
-        row.label(text="Relaxed Max Boundary Skewness:")
-        row.prop(relaxed, "maxBoundarySkewness", text="")
+        row.label(text="Min Area:")
+        row.prop(mesh_quality, "minArea", text="")
         
         row = grid.row(align=True)
-        row.label(text="Relaxed Max Internal Skewness:")
-        row.prop(relaxed, "maxInternalSkewness", text="")
+        row.label(text="Min Twist:")
+        row.prop(mesh_quality, "minTwist", text="")
         
         row = grid.row(align=True)
-        row.label(text="Relaxed Max Concaveness:")
-        row.prop(relaxed, "maxConcave", text="")
+        row.label(text="Min Determinant:")
+        row.prop(mesh_quality, "minDeterminant", text="")
         
-        #--------------------------------------------------
-        # SECTION 5: ERROR DISTRIBUTION SETTINGS
-        #--------------------------------------------------
+        row = grid.row(align=True)
+        row.label(text="Min Face Weight:")
+        row.prop(mesh_quality, "minFaceWeight", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Min Vol Ratio:")
+        row.prop(mesh_quality, "minVolRatio", text="")
+        
+        row = grid.row(align=True)
+        row.label(text="Min Triangle Twist:")
+        row.prop(mesh_quality, "minTriangleTwist", text="")
+    
+    def quality_error_tab(self, tools, context):
+        """Error distribution settings tab"""
+        cs = context.scene
+        mesh_quality = cs.mesh_quality
+        
         error_box = tools.box()
         error_box.label(text="Error Distribution Settings", icon="SNAP_FACE")
         
-        grid = error_box.grid_flow(row_major=True, columns=2, even_columns=True)
+        info = error_box.box()
+        info_text = info.column()
+        info_text.scale_y = 0.9
+        info_text.label(text="These settings control how mesh quality violations are")
+        info_text.label(text="distributed across the domain during smoothing.")
+        
+        grid = error_box.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True)
+        grid.scale_y = 1.1
         
         row = grid.row(align=True)
         row.label(text="Smooth Scale Iterations:")
@@ -1037,10 +1282,12 @@ class snappyhexmesh_menu:
         row = grid.row(align=True)
         row.label(text="Error Reduction:")
         row.prop(mesh_quality, "errorReduction", text="")
+    
+    def quality_preview_tab(self, tools, context):
+        """Preview tab for mesh quality settings"""
+        cs = context.scene
+        mesh_quality = cs.mesh_quality
         
-        #--------------------------------------------------
-        # SECTION 6: SYNTAX PREVIEW
-        #--------------------------------------------------
         box = tools.box()
         box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         col = box.column()
@@ -1048,24 +1295,24 @@ class snappyhexmesh_menu:
         col.label(text="meshQualityControls")
         col.label(text="{")
         
-        # Include external dict if enabled
         if mesh_quality.includeMeshQualityDict:
             col.label(text=f'    #include "{os.path.basename(mesh_quality.meshQualityDictPath)}";')
-            col.label(text="    // External dictionary will override settings below")
             col.label(text="")
+            col.label(text="    // Error distribution settings")
+            col.label(text=f"    nSmoothScale {mesh_quality.nSmoothScale};")
+            col.label(text=f"    errorReduction {mesh_quality.errorReduction};")
+        else:
+            # Standard constraints
+            col.label(text=f"    maxNonOrtho {mesh_quality.maxNonOrtho};")
+            col.label(text=f"    maxBoundarySkewness {mesh_quality.maxBoundarySkewness};")
+            col.label(text=f"    maxInternalSkewness {mesh_quality.maxInternalSkewness};")
+            col.label(text=f"    maxConcave {mesh_quality.maxConcave};")
+            col.label(text=f"    minFlatness {mesh_quality.minFlatness};")
+            col.label(text=f"    minVol {mesh_quality.minVol};")
+            col.label(text=f"    minTetQuality {mesh_quality.minTetQuality};")
 
-        # Standard constraints
-        col.label(text=f"    maxNonOrtho {mesh_quality.maxNonOrtho};")
-        col.label(text=f"    maxBoundarySkewness {mesh_quality.maxBoundarySkewness};")
-        col.label(text=f"    maxInternalSkewness {mesh_quality.maxInternalSkewness};")
-        col.label(text=f"    maxConcave {mesh_quality.maxConcave};")
-        col.label(text=f"    minFlatness {mesh_quality.minFlatness};")
-        col.label(text=f"    minVol {mesh_quality.minVol};")
-        col.label(text=f"    minTetQuality {mesh_quality.minTetQuality};")
-
-        # Advanced constraints
-        if mesh_quality.show_advanced_quality:
-            col.label(text="    ")
+            # Advanced constraints
+            col.label(text="")
             col.label(text="    // Advanced quality settings")
             col.label(text=f"    minVolCollapseRatio {mesh_quality.minVolCollapseRatio};")
             if mesh_quality.minArea > 0:
@@ -1077,22 +1324,12 @@ class snappyhexmesh_menu:
             if mesh_quality.minTriangleTwist > 0:
                 col.label(text=f"    minTriangleTwist {mesh_quality.minTriangleTwist};")
 
-        # Relaxed settings
-        col.label(text="    ")
-        col.label(text="    // Relaxed quality settings")
-        col.label(text="    relaxed")
-        col.label(text="    {")
-        col.label(text=f"        maxNonOrtho {relaxed.maxNonOrtho};")
-        col.label(text=f"        maxBoundarySkewness {relaxed.maxBoundarySkewness};")
-        col.label(text=f"        maxInternalSkewness {relaxed.maxInternalSkewness};")
-        col.label(text=f"        maxConcave {relaxed.maxConcave};")
-        col.label(text="    }")
-
-        # Error distribution
-        col.label(text="    ")
-        col.label(text=f"    nSmoothScale {mesh_quality.nSmoothScale};")
-        col.label(text=f"    errorReduction {mesh_quality.errorReduction};")
-
+            # Error distribution
+            col.label(text="")
+            col.label(text=f"    nSmoothScale {mesh_quality.nSmoothScale};")
+            col.label(text=f"    errorReduction {mesh_quality.errorReduction};")
+        
+        # Close the dictionary
         col.label(text="}")
 
     def dictionary_tab(self, tools, context):
@@ -1101,7 +1338,6 @@ class snappyhexmesh_menu:
         box = tools.box()
         box.label(text="Dictionary Controls")
         
-        # Add tooltips to dictionary settings
 
 @persistent
 def clean_geometry_items(dummy):

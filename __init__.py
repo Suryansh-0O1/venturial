@@ -133,7 +133,8 @@ from venturial.models.snappyhexmesh.layer_operators import (
 from venturial.models.snappyhexmesh.mesh_quality_operators import (
     MeshQualityProperties,
     RelaxedMeshQualityProperties,
-    VNT_OT_select_mesh_quality_dict
+    VNT_OT_select_mesh_quality_dict,
+    VNT_OT_copy_relaxed_settings
 )
 
 from venturial.models.snappyhexmesh.geometry_operators import geometry_index_update
@@ -280,6 +281,7 @@ classes = (
     MeshQualityProperties,
     RelaxedMeshQualityProperties,
     VNT_OT_select_mesh_quality_dict,
+    VNT_OT_copy_relaxed_settings,
     VNT_OT_generate_snappyhex_dict,
 )
 
@@ -305,6 +307,16 @@ def register():
     for cls in classes:
         register_class(cls)
 
+    bpy.types.Scene.mesh_quality = PointerProperty(
+        type=MeshQualityProperties,
+        name="Mesh Quality Settings"
+    )
+    bpy.types.Scene.relaxed_mesh_quality = PointerProperty(
+        type=RelaxedMeshQualityProperties,
+        name="Relaxed Mesh Quality Settings"
+    )
+    print("Registered mesh_quality and relaxed_mesh_quality property groups:", hasattr(bpy.types.Scene, "relaxed_mesh_quality"))
+    
     # Fix: Access RefinementRegion directly instead of through bpy.types
     from venturial.models.snappyhexmesh.castellated_operators import (
         RefinementRegion,
@@ -339,17 +351,6 @@ def register():
         default=2,
         min=0,
         max=10
-    )
-    
-    # Register mesh quality property groups
-    bpy.types.Scene.mesh_quality = PointerProperty(
-        type=MeshQualityProperties,
-        name="Mesh Quality Settings"
-    )
-    
-    bpy.types.Scene.relaxed_mesh_quality = PointerProperty(
-        type=RelaxedMeshQualityProperties,
-        name="Relaxed Mesh Quality Settings"
     )
     
     # Additional castellated mesh properties for the new UI sections
@@ -500,7 +501,6 @@ def register():
         default=True
     )
     
-    # The rest of register function continues...
     bpy.types.Scene.stl_file = StringProperty(name="STL File", default="")
     bpy.types.Scene.stl_file_name = StringProperty(name="STL File Name", default="")
     bpy.types.Scene.search_tuts = StringProperty(default="Search Tutorials")
@@ -853,7 +853,7 @@ def register():
     bpy.types.Scene.nCellsBetweenLevels = IntProperty(
         name="Cells Between Levels",
         description="Number of buffer cells between refinement levels",
-        default=2,  # Changed from 1 to 2
+        default=2,
         min=1
     )
     
@@ -1174,6 +1174,60 @@ def register():
         default=False
     )
     
+    # Add castellated tab property
+    bpy.types.Scene.castellated_tab = EnumProperty(
+        name="Settings",
+        description="Castellated mesh settings sections",
+        items=[
+            ('GENERAL', "General", "Basic parameters and general settings"),
+            ('FEATURES', "Features", "Feature edge refinement settings"),
+            ('SURFACES', "Surfaces", "Surface refinement settings"),
+            ('REGIONS', "Regions", "Region refinement settings"),
+            ('ADVANCED', "Advanced", "Advanced and feature angle settings"),
+            ('PREVIEW', "Preview", "Generated dictionary preview")
+        ],
+        default='GENERAL'
+    )
+    
+    # Add tab properties for snap, layer and quality sections
+    bpy.types.Scene.snap_tab = EnumProperty(
+        name="Settings",
+        description="Snap settings sections",
+        items=[
+            ('BASIC', "Basic", "Basic snap parameters"),
+            ('FEATURES', "Features", "Feature snapping settings"),
+            ('PREVIEW', "Preview", "Generated dictionary preview")
+        ],
+        default='BASIC'
+    )
+    
+    bpy.types.Scene.layer_tab = EnumProperty(
+        name="Settings",
+        description="Layer addition settings sections",
+        items=[
+            ('BASIC', "Basic", "Basic layer parameters and thickness"),
+            ('FEATURES', "Features", "Feature handling settings"),
+            ('PATCHES', "Patches", "Patch-specific settings"),
+            ('ADVANCED', "Advanced", "Advanced layer settings"),
+            ('PREVIEW', "Preview", "Generated dictionary preview")
+        ],
+        default='BASIC'
+    )
+    
+    bpy.types.Scene.quality_tab = EnumProperty(
+        name="Settings",
+        description="Mesh quality settings sections",
+        items=[
+            ('DICT', "Dictionary", "External dictionary option"),
+            ('STANDARD', "Standard", "Primary quality constraints"),
+            ('ADVANCED', "Advanced", "Advanced quality settings"),
+            ('RELAXED', "Relaxed", "Relaxed quality settings"),
+            ('ERROR', "Error", "Error distribution settings"),
+            ('PREVIEW', "Preview", "Generated dictionary preview")
+        ],
+        default='STANDARD'
+    )
+    
     # Update tooltips after all properties are registered
     register_tooltips()
     
@@ -1237,6 +1291,7 @@ def unregister():
         "current_surface_tab", "use_gap_level", "gap_level_increment",
         "handleSnapProblems", "useTopologicalSnapDetection", "show_layer_advanced",
         "layer_strategy", "detectExtrusionIsland", "show_advanced_quality",
+        "castellated_tab", "snap_tab", "layer_tab", "quality_tab",
     ]
     
     for prop in property_names:

@@ -10,29 +10,33 @@ in SnappyHexMesh. It includes:
 """
 
 import bpy
+from bpy.types import Operator, PropertyGroup
 from bpy.props import (
-    FloatProperty,
-    BoolProperty,
-    StringProperty,
-    IntProperty,
-    PointerProperty,
+    StringProperty, FloatProperty, IntProperty, BoolProperty, 
+    EnumProperty, PointerProperty
 )
+from bpy_extras.io_utils import ImportHelper
 
-class MeshQualityProperties(bpy.types.PropertyGroup):
-    """
-    Property group for standard and advanced mesh quality settings.
+class MeshQualityProperties(PropertyGroup):
+    """Standard mesh quality settings"""
     
-    These settings control mesh quality checks during the SnappyHexMesh process.
-    Standard settings affect the basic mesh quality constraints, while advanced
-    settings provide finer control over specialized quality metrics.
-    """
+    # External dictionary includes
+    includeMeshQualityDict: BoolProperty(
+        name="Use External Dictionary",
+        description="Include external mesh quality dictionary file",
+        default=False
+    )
     
-    #------------------------------------------------------
-    # Standard Mesh Quality Constraints
-    #------------------------------------------------------
+    meshQualityDictPath: StringProperty(
+        name="Mesh Quality Dict Path",
+        description="Path to external mesh quality dictionary file",
+        default="meshQualityDict"
+    )
+    
+    # Standard constraints
     maxNonOrtho: FloatProperty(
         name="Max Non-Orthogonality",
-        description="Maximum non-orthogonality allowed (angle in degrees)",
+        description="Maximum non-orthogonality allowed. 0=orthogonal, 90=bad. Values over 70-80 may lead to robustness issues.",
         default=65.0,
         min=0.0,
         max=180.0
@@ -40,21 +44,23 @@ class MeshQualityProperties(bpy.types.PropertyGroup):
     
     maxBoundarySkewness: FloatProperty(
         name="Max Boundary Skewness",
-        description="Maximum skewness allowed for boundary faces",
+        description="Maximum boundary face skewness allowed. Lower is better. Values over 4-5 may affect stability.",
         default=20.0,
-        min=0.0
+        min=0.0,
+        soft_max=20.0
     )
     
     maxInternalSkewness: FloatProperty(
         name="Max Internal Skewness",
-        description="Maximum skewness allowed for internal faces",
+        description="Maximum internal face skewness allowed. Lower is better. Values over 4-5 may affect stability.",
         default=4.0,
-        min=0.0
+        min=0.0,
+        soft_max=10.0
     )
     
     maxConcave: FloatProperty(
         name="Max Concaveness",
-        description="Maximum concaveness allowed (angle in degrees)",
+        description="Maximum concaveness allowed in degrees. 0=not concave, 180=fully concave. Lower is better.",
         default=80.0,
         min=0.0,
         max=180.0
@@ -62,7 +68,7 @@ class MeshQualityProperties(bpy.types.PropertyGroup):
     
     minFlatness: FloatProperty(
         name="Min Flatness",
-        description="Minimum flatness of faces (ratio of projected area to actual area)",
+        description="Minimum face flatness (1=flat, 0=degenerate). Values below 0.5 may indicate poor mesh quality.",
         default=0.5,
         min=0.0,
         max=1.0
@@ -70,25 +76,22 @@ class MeshQualityProperties(bpy.types.PropertyGroup):
     
     minVol: FloatProperty(
         name="Min Volume",
-        description="Minimum cell volume threshold",
+        description="Minimum normalized cell volume. Small values can indicate poor mesh quality.",
         default=1e-13,
-        precision=15
+        min=0.0,
     )
     
     minTetQuality: FloatProperty(
         name="Min Tet Quality",
-        description="Minimum quality of tetrahedral cells (0-1)",
+        description="Minimum quality of tetrahedral cells. Higher is better.",
         default=1e-30,
-        min=0.0,
-        max=1.0
+        min=0.0
     )
     
-    #------------------------------------------------------
-    # Advanced Mesh Quality Settings
-    #------------------------------------------------------
+    # Advanced constraints
     minVolCollapseRatio: FloatProperty(
         name="Min Volume Collapse Ratio",
-        description="Only collapse cells with volume ratio larger than this value",
+        description="Minimum volume ratio for collapsed cells. Higher values preserve more of original cell volume.",
         default=0.5,
         min=0.0,
         max=1.0
@@ -96,13 +99,14 @@ class MeshQualityProperties(bpy.types.PropertyGroup):
     
     minArea: FloatProperty(
         name="Min Area",
-        description="Minimum face area (negative value disables this check)",
-        default=-1.0
+        description="Minimum normalized face area (0=degenerate). Use 0 to disable check.",
+        default=0.0,
+        min=0.0
     )
     
     minTwist: FloatProperty(
         name="Min Twist",
-        description="Minimum face twist measure (0-1)",
+        description="Minimum face twist (0=twisted, 1=not twisted). Values below 0.02 are problematic.",
         default=0.02,
         min=0.0,
         max=1.0
@@ -110,7 +114,7 @@ class MeshQualityProperties(bpy.types.PropertyGroup):
     
     minDeterminant: FloatProperty(
         name="Min Determinant",
-        description="Minimum normalized cell determinant (measure of cell quality)",
+        description="Minimum normalized cell determinant. 1=regular, 0=degenerate. Negative values indicate invalid mesh.",
         default=0.001,
         min=0.0,
         max=1.0
@@ -118,15 +122,15 @@ class MeshQualityProperties(bpy.types.PropertyGroup):
     
     minFaceWeight: FloatProperty(
         name="Min Face Weight",
-        description="Minimum weight factor for face interpolation",
+        description="Minimum face interpolation weight (0=bad, 1=good). Low values indicate poor quality.",
         default=0.05,
         min=0.0,
         max=1.0
     )
     
     minVolRatio: FloatProperty(
-        name="Min Volume Ratio", 
-        description="Minimum ratio of neighboring cell volumes",
+        name="Min Vol Ratio",
+        description="Minimum volume ratio between adjacent cells (0=big difference, 1=same size). Low values indicate poor transitions.",
         default=0.01,
         min=0.0,
         max=1.0
@@ -134,116 +138,297 @@ class MeshQualityProperties(bpy.types.PropertyGroup):
     
     minTriangleTwist: FloatProperty(
         name="Min Triangle Twist",
-        description="Minimum triangle twist (negative value disables this check)",
-        default=-1.0
+        description="Minimum triangle face twist. 1=no twist, 0=completely folded. Values below 0.05 are problematic.",
+        default=0.01,
+        min=0.0,
+        max=1.0
     )
     
-    #------------------------------------------------------
-    # Error Distribution Settings
-    #------------------------------------------------------
+    # Error reduction settings
     nSmoothScale: IntProperty(
         name="Smooth Scale Iterations",
-        description="Number of error distribution iterations",
+        description="Number of error distribution iterations for mesh smoothing",
         default=4,
         min=0
     )
     
     errorReduction: FloatProperty(
         name="Error Reduction",
-        description="Amount to scale back displacement at error points",
+        description="Amount of error reduction in each iteration (0=none, 1=complete). Controls relaxation speed.",
         default=0.75,
         min=0.0,
         max=1.0
     )
-    
-    #------------------------------------------------------
-    # External Dictionary Settings
-    #------------------------------------------------------
-    includeMeshQualityDict: BoolProperty(
-        name="Include External Dictionary",
-        description="Include external mesh quality dictionary file (overrides settings)",
-        default=False
-    )
-    
-    meshQualityDictPath: StringProperty(
-        name="Dictionary Path",
-        description="Path to external mesh quality dictionary file",
-        default="meshQualityDict"
-    )
-    
-    #------------------------------------------------------
-    # UI Controls
-    #------------------------------------------------------
-    show_advanced_quality: BoolProperty(
-        name="Show Advanced Settings",
-        description="Show additional advanced mesh quality settings",
-        default=False
-    )
 
-
-class RelaxedMeshQualityProperties(bpy.types.PropertyGroup):
-    """
-    Property group for relaxed mesh quality settings.
+class RelaxedMeshQualityProperties(PropertyGroup):
+    """Relaxed mesh quality settings for cells exceeding nRelaxedIter iterations"""
     
-    These less stringent quality settings are used after reaching
-    a specified number of iterations (nRelaxedIter) to allow the
-    mesh generation process to complete when strict settings might
-    cause it to fail.
-    """
+    # Relaxation factor for quick setup
+    relaxation_factor: FloatProperty(
+        name="Relaxation Factor",
+        description="Factor applied to standard settings when copying (>1 for looser constraints, <1 for tighter)",
+        default=1.15,
+        min=0.5,
+        max=2.0
+    )
+    
+    # Standard constraints - use consistent prefix 'use_' for all toggle properties
+    use_maxNonOrtho: BoolProperty(
+        name="Max Non-Orthogonality",
+        description="Enable relaxed non-orthogonality constraint",
+        default=True
+    )
     
     maxNonOrtho: FloatProperty(
-        name="Relaxed Max Non-Orthogonality",
-        description="Maximum non-orthogonality allowed in relaxed mode",
+        name="Value",
+        description="Relaxed maximum non-orthogonality allowed (0=orthogonal, 90=bad)",
         default=75.0,
         min=0.0,
         max=180.0
     )
     
+    use_maxBoundarySkewness: BoolProperty(
+        name="Max Boundary Skewness",
+        description="Enable relaxed boundary skewness constraint",
+        default=False
+    )
+    
     maxBoundarySkewness: FloatProperty(
-        name="Relaxed Max Boundary Skewness",
-        description="Maximum boundary face skewness allowed in relaxed mode",
+        name="Value",
+        description="Relaxed maximum boundary face skewness allowed",
         default=30.0,
-        min=0.0
+        min=0.0,
+        soft_max=40.0
+    )
+    
+    use_maxInternalSkewness: BoolProperty(
+        name="Max Internal Skewness",
+        description="Enable relaxed internal skewness constraint",
+        default=False
     )
     
     maxInternalSkewness: FloatProperty(
-        name="Relaxed Max Internal Skewness",
-        description="Maximum internal face skewness allowed in relaxed mode",
+        name="Value",
+        description="Relaxed maximum internal face skewness allowed",
         default=8.0,
-        min=0.0
+        min=0.0,
+        soft_max=20.0
+    )
+    
+    use_maxConcave: BoolProperty(
+        name="Max Concaveness",
+        description="Enable relaxed concaveness constraint",
+        default=False
     )
     
     maxConcave: FloatProperty(
-        name="Relaxed Max Concaveness",
-        description="Maximum concaveness allowed in relaxed mode",
+        name="Value",
+        description="Relaxed maximum concaveness allowed in degrees",
         default=90.0,
         min=0.0,
         max=180.0
     )
     
+    use_minFlatness: BoolProperty(
+        name="Min Flatness",
+        description="Enable relaxed flatness constraint",
+        default=False
+    )
+    
+    minFlatness: FloatProperty(
+        name="Value",
+        description="Relaxed minimum face flatness",
+        default=0.2,
+        min=0.0,
+        max=1.0
+    )
+    
+    use_minVol: BoolProperty(
+        name="Min Volume",
+        description="Enable relaxed volume constraint",
+        default=False
+    )
+    
+    minVol: FloatProperty(
+        name="Value",
+        description="Relaxed minimum normalized cell volume",
+        default=1e-14,
+        min=0.0
+    )
+    
+    use_minTetQuality: BoolProperty(
+        name="Min Tet Quality",
+        description="Enable relaxed tetrahedral quality constraint",
+        default=False
+    )
+    
+    minTetQuality: FloatProperty(
+        name="Value",
+        description="Relaxed minimum quality of tetrahedral cells",
+        default=1e-40,
+        min=0.0
+    )
+    
+    # Advanced constraints
+    use_minVolCollapseRatio: BoolProperty(
+        name="Min Volume Collapse Ratio",
+        description="Enable relaxed volume collapse ratio constraint",
+        default=False
+    )
+    
+    minVolCollapseRatio: FloatProperty(
+        name="Value",
+        description="Relaxed minimum volume ratio for collapsed cells",
+        default=0.2,
+        min=0.0,
+        max=1.0
+    )
+    
+    use_minArea: BoolProperty(
+        name="Min Area",
+        description="Enable relaxed area constraint",
+        default=False
+    )
+    
+    minArea: FloatProperty(
+        name="Value",
+        description="Relaxed minimum normalized face area",
+        default=0.0,
+        min=0.0
+    )
+    
+    use_minTwist: BoolProperty(
+        name="Min Twist",
+        description="Enable relaxed twist constraint",
+        default=False
+    )
+    
+    minTwist: FloatProperty(
+        name="Value",
+        description="Relaxed minimum face twist",
+        default=0.01,
+        min=0.0,
+        max=1.0
+    )
+    
+    use_minDeterminant: BoolProperty(
+        name="Min Determinant",
+        description="Enable relaxed determinant constraint",
+        default=False
+    )
+    
+    minDeterminant: FloatProperty(
+        name="Value",
+        description="Relaxed minimum normalized cell determinant",
+        default=0.0005,
+        min=0.0,
+        max=1.0
+    )
+    
+    use_minFaceWeight: BoolProperty(
+        name="Min Face Weight",
+        description="Enable relaxed face weight constraint",
+        default=False
+    )
+    
+    minFaceWeight: FloatProperty(
+        name="Value",
+        description="Relaxed minimum face interpolation weight",
+        default=0.01,
+        min=0.0,
+        max=1.0
+    )
+    
+    use_minVolRatio: BoolProperty(
+        name="Min Volume Ratio",
+        description="Enable relaxed volume ratio constraint",
+        default=False
+    )
+    
+    minVolRatio: FloatProperty(
+        name="Value",
+        description="Relaxed minimum volume ratio between adjacent cells",
+        default=0.001,
+        min=0.0,
+        max=1.0
+    )
+    
+    use_minTriangleTwist: BoolProperty(
+        name="Min Triangle Twist",
+        description="Enable relaxed triangle twist constraint",
+        default=False
+    )
+    
+    minTriangleTwist: FloatProperty(
+        name="Value",
+        description="Relaxed minimum triangle face twist",
+        default=0.001,
+        min=0.0,
+        max=1.0
+    )
 
-class VNT_OT_select_mesh_quality_dict(bpy.types.Operator):
-    """
-    Operator to select an external mesh quality dictionary file.
-    
-    Opens a file browser to select a dictionary file containing
-    mesh quality settings that will override the UI settings.
-    """
-    
+class VNT_OT_select_mesh_quality_dict(Operator, ImportHelper):
+    """Select mesh quality dictionary file"""
     bl_idname = "vnt.select_mesh_quality_dict"
-    bl_label = "Select Mesh Quality Dict"
-    bl_description = "Browse for an external mesh quality dictionary file"
+    bl_label = "Select Mesh Quality Dictionary File"
     
-    filepath: StringProperty(
-        name="File Path",
-        description="Path to mesh quality dictionary file",
-        default=""
+    filename_ext = ".dict"
+    filter_glob: StringProperty(
+        default="*.dict",
+        options={'HIDDEN'}
     )
     
     def execute(self, context):
-        context.scene.mesh_quality.meshQualityDictPath = self.filepath
+        if self.filepath:
+            # Store the selected path
+            context.scene.mesh_quality.meshQualityDictPath = self.filepath
         return {'FINISHED'}
+
+class VNT_OT_copy_relaxed_settings(Operator):
+    """Copy standard mesh quality settings to relaxed settings with relaxation factor applied"""
+    bl_idname = "vnt.copy_relaxed_settings"
+    bl_label = "Copy From Standard"
+    bl_description = "Copy standard mesh quality settings to relaxed settings with relaxation applied"
     
-    def invoke(self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
+    def execute(self, context):
+        mesh_quality = context.scene.mesh_quality
+        relaxed = context.scene.relaxed_mesh_quality
+        factor = relaxed.relaxation_factor
+        
+        # For max values, multiply by factor (higher = more permissive)
+        relaxed.maxNonOrtho = min(mesh_quality.maxNonOrtho * factor, 180.0)
+        relaxed.maxBoundarySkewness = mesh_quality.maxBoundarySkewness * factor
+        relaxed.maxInternalSkewness = mesh_quality.maxInternalSkewness * factor
+        relaxed.maxConcave = min(mesh_quality.maxConcave * factor, 180.0)
+        
+        # For min values, divide by factor (lower = more permissive)
+        relaxed.minFlatness = max(mesh_quality.minFlatness / factor, 0.0)
+        relaxed.minVol = max(mesh_quality.minVol / factor, 0.0)
+        relaxed.minTetQuality = max(mesh_quality.minTetQuality / factor, 0.0)
+        relaxed.minVolCollapseRatio = max(mesh_quality.minVolCollapseRatio / factor, 0.0)
+        relaxed.minArea = max(mesh_quality.minArea / factor, 0.0)
+        relaxed.minTwist = max(mesh_quality.minTwist / factor, 0.0) 
+        relaxed.minDeterminant = max(mesh_quality.minDeterminant / factor, 0.0)
+        relaxed.minFaceWeight = max(mesh_quality.minFaceWeight / factor, 0.0)
+        relaxed.minVolRatio = max(mesh_quality.minVolRatio / factor, 0.0)
+        relaxed.minTriangleTwist = max(mesh_quality.minTriangleTwist / factor, 0.0)
+        
+        # Enable constraints if their values are significantly different from standard
+        threshold = 0.01
+        relaxed.use_maxNonOrtho = abs(relaxed.maxNonOrtho - mesh_quality.maxNonOrtho) > threshold
+        relaxed.use_maxBoundarySkewness = abs(relaxed.maxBoundarySkewness - mesh_quality.maxBoundarySkewness) > threshold
+        relaxed.use_maxInternalSkewness = abs(relaxed.maxInternalSkewness - mesh_quality.maxInternalSkewness) > threshold
+        relaxed.use_maxConcave = abs(relaxed.maxConcave - mesh_quality.maxConcave) > threshold
+        relaxed.use_minFlatness = abs(relaxed.minFlatness - mesh_quality.minFlatness) > threshold
+        relaxed.use_minVol = abs(relaxed.minVol - mesh_quality.minVol) > threshold * mesh_quality.minVol
+        relaxed.use_minTetQuality = abs(relaxed.minTetQuality - mesh_quality.minTetQuality) > threshold * mesh_quality.minTetQuality
+        relaxed.use_minVolCollapseRatio = abs(relaxed.minVolCollapseRatio - mesh_quality.minVolCollapseRatio) > threshold
+        relaxed.use_minArea = abs(relaxed.minArea - mesh_quality.minArea) > threshold * mesh_quality.minArea if mesh_quality.minArea > 0 else False
+        relaxed.use_minTwist = abs(relaxed.minTwist - mesh_quality.minTwist) > threshold
+        relaxed.use_minDeterminant = abs(relaxed.minDeterminant - mesh_quality.minDeterminant) > threshold
+        relaxed.use_minFaceWeight = abs(relaxed.minFaceWeight - mesh_quality.minFaceWeight) > threshold
+        relaxed.use_minVolRatio = abs(relaxed.minVolRatio - mesh_quality.minVolRatio) > threshold
+        relaxed.use_minTriangleTwist = abs(relaxed.minTriangleTwist - mesh_quality.minTriangleTwist) > threshold
+        
+        self.report({'INFO'}, "Copied standard settings to relaxed settings with relaxation factor applied")
+        return {'FINISHED'}
