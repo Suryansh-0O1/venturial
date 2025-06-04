@@ -1201,6 +1201,16 @@ def register():
         default='BASIC'
     )
     
+    bpy.types.Scene.geometry_tab = EnumProperty(
+        name="Settings",
+        description="Geometry settings sections",
+        items=[
+            ('DEFINE', "Define", "Define geometry objects"),
+            ('PREVIEW', "Preview", "Preview geometry dictionary")
+        ],
+        default='DEFINE'
+    )
+    
     bpy.types.Scene.layer_tab = EnumProperty(
         name="Settings",
         description="Layer addition settings sections",
@@ -1292,6 +1302,7 @@ def unregister():
         "handleSnapProblems", "useTopologicalSnapDetection", "show_layer_advanced",
         "layer_strategy", "detectExtrusionIsland", "show_advanced_quality",
         "castellated_tab", "snap_tab", "layer_tab", "quality_tab",
+        "geometry_tab",  # Add this line
     ]
     
     for prop in property_names:

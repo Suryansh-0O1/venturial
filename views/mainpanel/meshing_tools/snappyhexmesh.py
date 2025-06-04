@@ -6,6 +6,16 @@ from bpy.app.handlers import persistent
 from venturial.models.snappyhexmesh.geometry_operators import VNT_OT_create_new_geometry, VNT_OT_delete_geometry
 from venturial.models.snappyhexmesh.file_operators import VNT_OT_export_stl_geometry
 from venturial.models.snappyhexmesh.dictionary_operators import VNT_OT_generate_snappyhex_dict
+# Import the new dictionary writer module
+from venturial.models.snappyhexmesh.dictionary_writers import (
+    generate_geometry_subdictionary,
+    generate_castellated_subdictionary,
+    generate_snap_subdictionary,
+    generate_layer_subdictionary,
+    generate_quality_subdictionary,
+    generate_dictionary_controls_subdictionary,
+    format_lines_for_preview
+)
 
 # Import tooltips but use a different approach for displaying them
 from venturial.models.snappyhexmesh.tooltips import (
@@ -44,6 +54,23 @@ class snappyhexmesh_menu:
     def geometry_tab(self, tools, context):
         """Geometry import/export and management interface"""
         cs = context.scene
+        
+        # Tab selection row
+        row = tools.row(align=True)
+        row.scale_y = 1.2
+        row.prop(cs, "geometry_tab", expand=True)
+        
+        tools.separator(factor=0.5)
+        
+        # Display the selected tab
+        if cs.geometry_tab == 'DEFINE':
+            self.geometry_define_tab(tools, context)
+        elif cs.geometry_tab == 'PREVIEW':
+            self.geometry_preview_tab(tools, context)
+    
+    def geometry_define_tab(self, tools, context):
+        """Definition interface for geometry import/export and management"""
+        cs = context.scene
 
         # STL File section
         row = tools.row(align=True)
@@ -68,6 +95,31 @@ class snappyhexmesh_menu:
         col_button = row.column(align=True)
         col_button.operator("vnt.create_new_geometry", text="", icon="ADD")
         col_button.operator("vnt.delete_geometry", text="", icon="REMOVE")
+
+    def geometry_preview_tab(self, tools, context):
+        """Preview tab for geometry dictionary settings"""
+        cs = context.scene
+        
+        preview_box = tools.box()
+        preview_box.label(text="Geometry Dictionary Preview", icon="TEXT")
+        
+        # Use dictionary writer to generate preview
+        lines = generate_geometry_subdictionary(cs)
+        lines = format_lines_for_preview(lines)
+        
+        # Display the preview lines in the UI
+        col = preview_box.column()
+        col.scale_y = 0.85
+        for line in lines:
+            col.label(text=line)
+        
+        # Show usage note if no geometry is defined
+        if len(cs.geometry_items) == 0:
+            note_box = tools.box()
+            note_box.label(text="Note: No geometry objects defined", icon="INFO")
+            row = note_box.row()
+            row.alignment = 'CENTER'
+            row.label(text="Go to 'Define' tab and add geometry objects")
 
     def castellated_tab(self, tools, context):
         """Castellated mesh creation settings interface with tabs for better organization"""
@@ -526,151 +578,16 @@ class snappyhexmesh_menu:
         preview_box = tools.box()
         preview_box.label(text="Dictionary Preview", icon="TEXT")
         
+        # Use dictionary writer to generate preview
+        lines = generate_castellated_subdictionary(cs)
+        lines = format_lines_for_preview(lines)
+        
         # Create a scrollable area for the preview
         preview_col = preview_box.column()
         preview_col.scale_y = 0.85
         
-        # Dictionary header
-        preview_col.label(text="castellatedMeshControls")
-        preview_col.label(text="{")
-        
-        # Basic parameters
-        preview_col.label(text=f"    // Basic parameters")
-        preview_col.label(text=f"    maxLocalCells {cs.maxLocalCells};")
-        preview_col.label(text=f"    maxGlobalCells {cs.maxGlobalCells};")
-        preview_col.label(text=f"    minRefinementCells {cs.minRefinementCells};")
-        preview_col.label(text=f"    maxLoadUnbalance {cs.maxLoadUnbalance};")
-        preview_col.label(text=f"    nCellsBetweenLevels {cs.nCellsBetweenLevels};")
-        
-        # Features section
-        if len(cs.cast_features) > 0:
-            preview_col.label(text="")
-            preview_col.label(text="    // Feature refinement")
-            preview_col.label(text="    features")
-            preview_col.label(text="    (")
-            
-            for i, feature in enumerate(cs.cast_features):
-                if not feature.file:
-                    continue
-                    
-                preview_col.label(text=f"        {{")
-                preview_col.label(text=f"            file \"{os.path.basename(feature.file)}\";")
-                
-                # Format levels based on refinement mode
-                if feature.refinement_mode == 'uniform':
-                    preview_col.label(text=f"            levels (({feature.level} {feature.level}));")
-                elif feature.refinement_mode == 'single_distance':
-                    preview_col.label(text=f"            levels (({feature.distance} {feature.level_at_distance}));")
-                elif feature.refinement_mode == 'multi_distance':
-                    if len(feature.distance_level_pairs) > 0:
-                        pairs = " ".join([f"({p.distance} {p.level})" for p in feature.distance_level_pairs])
-                        preview_col.label(text=f"            levels ({pairs});")
-                    else:
-                        preview_col.label(text="            levels ();")
-                
-                preview_col.label(text=f"        }}")
-            
-            preview_col.label(text="    );")
-        
-        # Refinement surfaces
-        if len(cs.cast_refinement_surfaces) > 0:
-            preview_col.label(text="")
-            preview_col.label(text="    // Surface refinement")
-            preview_col.label(text="    refinementSurfaces")
-            preview_col.label(text="    {")
-            
-            for surface in cs.cast_refinement_surfaces:
-                name = surface.name
-                if surface.source_type == 'geometry' and surface.geometry_object:
-                    name = surface.geometry_object
-                    
-                preview_col.label(text=f"        {name}")
-                preview_col.label(text="        {")
-                preview_col.label(text=f"            level ({surface.min_level} {surface.max_level});")
-                
-                # Regions if any
-                if len(surface.regions) > 0:
-                    preview_col.label(text="")
-                    preview_col.label(text="            regions")
-                    preview_col.label(text="            {")
-                    
-                    for region in surface.regions:
-                        preview_col.label(text=f"                {region.name}")
-                        preview_col.label(text="                {")
-                        preview_col.label(text=f"                    level ({region.min_level} {region.max_level});")
-                        preview_col.label(text="                }")
-                    
-                    preview_col.label(text="            }")
-                
-                # Zones if defined
-                if surface.face_zone or surface.cell_zone:
-                    preview_col.label(text="")
-                    if surface.face_zone:
-                        preview_col.label(text=f"            faceZone {surface.face_zone};")
-                    if surface.cell_zone:
-                        preview_col.label(text=f"            cellZone {surface.cell_zone};")
-                        preview_col.label(text=f"            cellZoneInside {surface.cell_zone_inside};")
-                
-                preview_col.label(text="        }")
-            
-            preview_col.label(text="    }")
-        
-        # Refinement regions
-        if len(cs.cast_refinement_regions) > 0:
-            preview_col.label(text="")
-            preview_col.label(text="    // Region refinement")
-            preview_col.label(text="    refinementRegions")
-            preview_col.label(text="    {")
-            
-            for region in cs.cast_refinement_regions:
-                # Get region name
-                name = region.name
-                if region.source_type == 'geometry' and region.geometry_object:
-                    name = region.geometry_object
-                
-                preview_col.label(text=f"        {name}")
-                preview_col.label(text="        {")
-                
-                # Mode-specific settings
-                if region.mode == 'inside':
-                    preview_col.label(text=f"            mode inside;")
-                    preview_col.label(text=f"            levels (({region.level} {region.level}));")
-                else:  # distance mode
-                    preview_col.label(text=f"            mode distance;")
-                    
-                    if region.use_advanced_distance and len(region.distance_level_pairs) > 0:
-                        pairs = " ".join([f"({p.distance} {p.level})" for p in region.distance_level_pairs])
-                        preview_col.label(text=f"            levels ({pairs});")
-                    else:
-                        preview_col.label(text=f"            levels (({region.distance} {region.level_at_distance}));")
-                
-                preview_col.label(text="        }")
-            
-            preview_col.label(text="    }")
-        
-        # Location in mesh
-        preview_col.label(text="")
-        preview_col.label(text="    // Mesh selection")
-        preview_col.label(text=f"    locationInMesh ({cs.locationInMeshX} {cs.locationInMeshY} {cs.locationInMeshZ});")
-        preview_col.label(text=f"    allowFreeStandingZoneFaces {str(cs.allowFreeStandingZoneFaces).lower()};")
-        
-        # Feature angle settings
-        preview_col.label(text="")
-        preview_col.label(text="    // Feature handling")
-        preview_col.label(text=f"    resolveFeatureAngle {cs.resolveFeatureAngle};")
-        preview_col.label(text=f"    planarAngle {cs.planarAngle};")
-        
-        # Advanced options
-        if cs.handleSnapProblems or cs.useTopologicalSnapDetection:
-            preview_col.label(text="")
-            preview_col.label(text="    // Advanced options")
-            if cs.handleSnapProblems:
-                preview_col.label(text="    handleSnapProblems true;")
-            if cs.useTopologicalSnapDetection:
-                preview_col.label(text="    useTopologicalSnapDetection true;")
-        
-        # Close dictionary
-        preview_col.label(text="}")
+        for line in lines:
+            preview_col.label(text=line)
 
     def snap_tab(self, tools, context):
         """Snap settings interface with tabs for better organization"""
@@ -777,25 +694,16 @@ class snappyhexmesh_menu:
         preview_box = tools.box()
         preview_box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         
+        # Use dictionary writer to generate preview
+        lines = generate_snap_subdictionary(cs)
+        lines = format_lines_for_preview(lines)
+        
         # Preview content
         col = preview_box.column()
         col.scale_y = 0.85
-        col.label(text="snapControls")
-        col.label(text="{")
-        col.label(text=f"    nSmoothPatch {cs.nSmoothPatch};")
-        col.label(text=f"    tolerance {cs.tolerance};")
-        col.label(text=f"    nSolveIter {cs.nSolveIter};")
-        col.label(text=f"    nRelaxIter {cs.nRelaxIter};")
         
-        if cs.useFeatureSnap:
-            col.label(text="")
-            col.label(text="    // Feature snapping")
-            col.label(text=f"    nFeatureSnapIter {cs.nFeatureSnapIter};")
-            col.label(text=f"    implicitFeatureSnap {str(cs.implicitFeatureSnap).lower()};")
-            col.label(text=f"    explicitFeatureSnap {str(cs.explicitFeatureSnap).lower()};")
-            col.label(text=f"    multiRegionFeatureSnap {str(cs.multiRegionFeatureSnap).lower()};")
-        
-        col.label(text="}")
+        for line in lines:
+            col.label(text=line)
 
     def layercontrol_tab(self, tools, context):
         """Layer addition settings interface with tabs for better organization"""
@@ -1040,77 +948,22 @@ class snappyhexmesh_menu:
         preview_box = tools.box()
         preview_box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         
+        # Use dictionary writer to generate preview
+        lines = generate_layer_subdictionary(cs)
+        lines = format_lines_for_preview(lines)
+        
+        if not lines:
+            # If layers are disabled
+            col = preview_box.column()
+            col.label(text="Layer addition is disabled")
+            return
+        
         # Preview content showing actual OpenFOAM dictionary syntax
         col = preview_box.column()
         col.scale_y = 0.85
-        col.label(text="addLayersControls")
-        col.label(text="{")  # Fixed: Added quotes to make it a string
         
-        # Basic settings
-        col.label(text=f"    relativeSizes {str(cs.relativeSizes).lower()};")
-        
-        # Layer thickness parameters based on selected mode
-        if 'expansion_final' in cs.thickness_mode:
-            col.label(text=f"    expansionRatio {cs.expansionRatio};")
-            col.label(text=f"    finalLayerThickness {cs.finalLayerThickness};")
-        elif 'expansion_first' in cs.thickness_mode:
-            col.label(text=f"    expansionRatio {cs.expansionRatio};")
-            col.label(text=f"    firstLayerThickness {cs.firstLayerThickness};")
-        elif 'overall_first' in cs.thickness_mode:
-            col.label(text=f"    thickness {cs.overallThickness};")
-            col.label(text=f"    firstLayerThickness {cs.firstLayerThickness};")
-        elif 'overall_final' in cs.thickness_mode:
-            col.label(text=f"    thickness {cs.overallThickness};")
-            col.label(text=f"    finalLayerThickness {cs.finalLayerThickness};")
-        elif 'overall_expansion' in cs.thickness_mode:
-            col.label(text=f"    thickness {cs.overallThickness};")
-            col.label(text=f"    expansionRatio {cs.expansionRatio};")
-        
-        # Common parameters
-        col.label(text=f"    minThickness {cs.minThickness};")
-        col.label(text=f"    featureAngle {cs.featureAngle};")
-        col.label(text=f"    nGrow {cs.nGrow};")
-        col.label(text=f"    detectExtrusionIsland {str(cs.detectExtrusionIsland).lower()};")
-        
-        # Patch-specific settings
-        if len(cs.layer_patches) > 0:
-            col.label(text="")
-            col.label(text="    // Patch-specific settings")
-            col.label(text="    layers")
-            col.label(text="    {")
-            
-            for patch in cs.layer_patches:
-                if patch.nSurfaceLayers > 0:  # Only include patches with layers
-                    col.label(text=f"        {patch.name}")
-                    col.label(text="        {")
-                    col.label(text=f"            nSurfaceLayers {patch.nSurfaceLayers};")
-                    
-                    if patch.custom_expansion:
-                        col.label(text=f"            expansionRatio {patch.expansionRatio};")
-                        col.label(text=f"            finalLayerThickness {patch.finalLayerThickness};")
-                        col.label(text=f"            minThickness {patch.minThickness};")
-                    
-                    col.label(text="        }")
-            
-            col.label(text="    }")
-        
-        # Advanced settings preview
-        col.label(text="")
-        col.label(text="    // Advanced settings")
-        col.label(text=f"    maxFaceThicknessRatio {cs.maxFaceThicknessRatio};")
-        col.label(text=f"    nSmoothSurfaceNormals {cs.nSmoothSurfaceNormals};")
-        col.label(text=f"    nSmoothThickness {cs.nSmoothThickness};")
-        col.label(text=f"    minMedialAxisAngle {cs.minMedialAxisAngle};")
-        col.label(text=f"    maxThicknessToMedialRatio {cs.maxThicknessToMedialRatio};")
-        col.label(text=f"    nSmoothNormals {cs.nSmoothNormals};")
-        col.label(text=f"    slipFeatureAngle {cs.slipFeatureAngle};")
-        col.label(text=f"    nRelaxIter {cs.nRelaxIter};")
-        col.label(text=f"    nBufferCellsNoExtrude {cs.nBufferCellsNoExtrude};")
-        col.label(text=f"    nLayerIter {cs.nLayerIter};")
-        col.label(text=f"    nRelaxedIter {cs.nRelaxedIter};")
-        col.label(text=f"    additionalReporting {str(cs.additionalReporting).lower()};")
-        
-        col.label(text="}")
+        for line in lines:
+            col.label(text=line)
 
     def meshquality_tab(self, tools, context):
         """Mesh quality settings interface with tabs for better organization"""
@@ -1286,58 +1139,27 @@ class snappyhexmesh_menu:
     def quality_preview_tab(self, tools, context):
         """Preview tab for mesh quality settings"""
         cs = context.scene
-        mesh_quality = cs.mesh_quality
         
         box = tools.box()
         box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
+        
+        # Use dictionary writer to generate preview
+        lines = generate_quality_subdictionary(cs)
+        lines = format_lines_for_preview(lines)
+        
         col = box.column()
         col.scale_y = 0.85
-        col.label(text="meshQualityControls")
-        col.label(text="{")
         
-        if mesh_quality.includeMeshQualityDict:
-            col.label(text=f'    #include "{os.path.basename(mesh_quality.meshQualityDictPath)}";')
-            col.label(text="")
-            col.label(text="    // Error distribution settings")
-            col.label(text=f"    nSmoothScale {mesh_quality.nSmoothScale};")
-            col.label(text=f"    errorReduction {mesh_quality.errorReduction};")
-        else:
-            # Standard constraints
-            col.label(text=f"    maxNonOrtho {mesh_quality.maxNonOrtho};")
-            col.label(text=f"    maxBoundarySkewness {mesh_quality.maxBoundarySkewness};")
-            col.label(text=f"    maxInternalSkewness {mesh_quality.maxInternalSkewness};")
-            col.label(text=f"    maxConcave {mesh_quality.maxConcave};")
-            col.label(text=f"    minFlatness {mesh_quality.minFlatness};")
-            col.label(text=f"    minVol {mesh_quality.minVol};")
-            col.label(text=f"    minTetQuality {mesh_quality.minTetQuality};")
-
-            # Advanced constraints
-            col.label(text="")
-            col.label(text="    // Advanced quality settings")
-            col.label(text=f"    minVolCollapseRatio {mesh_quality.minVolCollapseRatio};")
-            if mesh_quality.minArea > 0:
-                col.label(text=f"    minArea {mesh_quality.minArea};")
-            col.label(text=f"    minTwist {mesh_quality.minTwist};")
-            col.label(text=f"    minDeterminant {mesh_quality.minDeterminant};")
-            col.label(text=f"    minFaceWeight {mesh_quality.minFaceWeight};")
-            col.label(text=f"    minVolRatio {mesh_quality.minVolRatio};")
-            if mesh_quality.minTriangleTwist > 0:
-                col.label(text=f"    minTriangleTwist {mesh_quality.minTriangleTwist};")
-
-            # Error distribution
-            col.label(text="")
-            col.label(text=f"    nSmoothScale {mesh_quality.nSmoothScale};")
-            col.label(text=f"    errorReduction {mesh_quality.errorReduction};")
-        
-        # Close the dictionary
-        col.label(text="}")
+        for line in lines:
+            col.label(text=line)
 
     def dictionary_tab(self, tools, context):
-        """Dictionary generation settings interface"""
-        cs = context.scene
-        box = tools.box()
-        box.label(text="Dictionary Controls")
-        
+        """Dictionary generation interface with a single button to generate and save the dictionary"""
+        # Add a prominent generate button
+        row = tools.row(align=True)
+        row.scale_y = 2.0  # Make button larger
+        row.operator("vnt.generate_snappyhex_dict", text="Generate SnappyHexMesh Dictionary", icon="FILE_TICK")
+
 
 @persistent
 def clean_geometry_items(dummy):
