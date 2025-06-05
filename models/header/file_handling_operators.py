@@ -61,8 +61,8 @@ class new_case_prompt:
         row3 = layout.row()
         row3spt = row3.split(factor = 0.3)
         
-        r3c1 = row3spt.row()
-        r3c2 = row3spt.row() 
+        r3c1 = r3spt.row()
+        r3c2 = r3spt.row() 
         
         r3c1.label(text="Meshing Tool")
         r3c2.prop(cs, "prompt_meshing_tool", expand=True)
@@ -360,6 +360,11 @@ class VNT_OT_stl_browse(bpy.types.Operator):
     def execute(self, context):
         context.scene.stl_file = self.filepath
         context.scene.stl_file_name = os.path.basename(self.filepath)
+        
+        # Set default custom name (without extension) if it's empty
+        if not context.scene.stl_custom_name:
+            context.scene.stl_custom_name = os.path.splitext(os.path.basename(self.filepath))[0]
+            
         return {'FINISHED'}
     
     def invoke(self, context, event):

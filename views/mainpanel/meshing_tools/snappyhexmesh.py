@@ -2,9 +2,11 @@ import bpy
 import os
 from bpy.app.handlers import persistent
 
+# Core operator imports
 from venturial.models.snappyhexmesh.geometry_operators import VNT_OT_create_new_geometry, VNT_OT_delete_geometry
 from venturial.models.snappyhexmesh.file_operators import VNT_OT_export_stl_geometry
 from venturial.models.snappyhexmesh.dictionary_operators import VNT_OT_generate_snappyhex_dict
+# Import the new dictionary writer module
 from venturial.models.snappyhexmesh.dictionary_writers import (
     generate_geometry_subdictionary,
     generate_castellated_subdictionary,
@@ -81,8 +83,13 @@ class snappyhexmesh_menu:
         row.operator("vnt.export_stl_geometry", text="Export Current Geometry")
         
         row = tools.row(align=True)
-        row.label(text="Name of STL File")
+        row.label(text="STL File Name")
         row.prop(cs, "stl_file_name", text="")
+        
+        # Add new field for custom STL name
+        row = tools.row(align=True)
+        row.label(text="Custom STL Name")
+        row.prop(cs, "stl_custom_name", text="")
         
         # STL Regions section - only show if STL is imported
         if cs.stl_file_name:
@@ -1160,6 +1167,7 @@ class snappyhexmesh_menu:
         box = tools.box()
         box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         
+        # Use dictionary writer to generate preview
         lines = generate_quality_subdictionary(cs)
         lines = format_lines_for_preview(lines)
         
@@ -1201,6 +1209,7 @@ class snappyhexmesh_menu:
         write_box = tools.box()
         write_box.label(text="Write Flags", icon="EXPORT")
         
+        # Simplified flag props without dynamic tooltip calls
         row = write_box.row()
         row.prop(cs, "writeFlag_scalarLevels", text="Write cell level fields")
         
@@ -1223,9 +1232,10 @@ class snappyhexmesh_menu:
         help_text.label(text="Tolerance used for point merging. Relative to bounding box.")
         help_text.label(text="Lower values preserve more detail but may cause mesh issues.")
         
+        # Add a prominent generate button
         tools.separator()
         row = tools.row(align=True)
-        row.scale_y = 1.5
+        row.scale_y = 2.0  # Make button larger
         row.operator("vnt.generate_snappyhex_dict", text="Generate SnappyHexMesh Dictionary", icon="FILE_TICK")
 
 

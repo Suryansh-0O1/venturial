@@ -9,6 +9,10 @@ ensuring consistency between what users see in previews and the actual generated
 import os
 import bpy
 
+def _fmt(val):
+    """Format floats to fixed precision for dictionary output."""
+    return f"{val:.6f}" if isinstance(val, float) else str(val)
+
 def generate_geometry_subdictionary(scene):
     """Generate the geometry subdictionary"""
     lines = []
@@ -21,13 +25,15 @@ def generate_geometry_subdictionary(scene):
     
     # Always show imported STL if present
     if scene.stl_file_name:
-        stl_name = os.path.splitext(scene.stl_file_name)[0]
-        lines.append(f"    {stl_name}.stl")
+        # Use the full STL filename directly as the dictionary key
+        lines.append(f"    {scene.stl_file_name}")
         lines.append("    {")
         lines.append("        type triSurfaceMesh;")
         
-        # Add name parameter if file name is available
-        if scene.stl_file_name:
+        # Use custom name if provided, otherwise fall back to basename without extension
+        if scene.stl_custom_name:
+            lines.append(f"        name {scene.stl_custom_name};")
+        else:
             base_name = os.path.splitext(os.path.basename(scene.stl_file_name))[0]
             lines.append(f"        name {base_name};")
         
@@ -60,8 +66,8 @@ def generate_geometry_subdictionary(scene):
             lines.append(f"    {item.name}")
             lines.append("    {")
             lines.append("        type searchableBox;")
-            lines.append(f"        min ({min_x} {min_y} {min_z});")
-            lines.append(f"        max ({max_x} {max_y} {max_z});")
+            lines.append(f"        min ({_fmt(min_x)} {_fmt(min_y)} {_fmt(min_z)});")
+            lines.append(f"        max ({_fmt(max_x)} {_fmt(max_y)} {_fmt(max_z)});")
             lines.append("    }")
             continue
 
@@ -71,8 +77,8 @@ def generate_geometry_subdictionary(scene):
             lines.append(f"    {item.name}")
             lines.append("    {")
             lines.append("        type searchableSphere;")
-            lines.append(f"        centre ({cx} {cy} {cz});")
-            lines.append(f"        radius {r};")
+            lines.append(f"        centre ({_fmt(cx)} {_fmt(cy)} {_fmt(cz)});")
+            lines.append(f"        radius {_fmt(r)};")
             lines.append("    }")
             continue
 
@@ -99,7 +105,7 @@ def generate_castellated_subdictionary(scene):
     lines.append(f"    maxLocalCells {scene.maxLocalCells};")
     lines.append(f"    maxGlobalCells {scene.maxGlobalCells};")
     lines.append(f"    minRefinementCells {scene.minRefinementCells};")
-    lines.append(f"    maxLoadUnbalance {scene.maxLoadUnbalance};")
+    lines.append(f"    maxLoadUnbalance {_fmt(scene.maxLoadUnbalance)};")
     lines.append(f"    nCellsBetweenLevels {scene.nCellsBetweenLevels};")
     
     # Features section
@@ -115,7 +121,7 @@ def generate_castellated_subdictionary(scene):
                 lines.append(f"            file \"{os.path.basename(feature.file)}\";")
                 
                 if feature.refinement_mode == 'single_distance':
-                    lines.append(f"            levels (({feature.distance} {feature.level_at_distance}));")
+                    lines.append(f"            levels (({_fmt(feature.distance)} {feature.level_at_distance}));")
                 elif feature.refinement_mode == 'multi_distance':
                     if len(feature.distance_level_pairs) > 0:
                         pairs_text = " ".join([f"({p.distance} {p.level})" for p in feature.distance_level_pairs])
@@ -137,9 +143,23 @@ def generate_castellated_subdictionary(scene):
         lines.append("    {")
         
         for surface in scene.cast_refinement_surfaces:
-            lines.append(f"        {surface.name}")
+            if surface.source_type == 'geometry' and surface.geometry_object:
+                surface_name = surface.geometry_object
+            else:
+                surface_name = surface.name
+                
+            lines.append(f"        {surface_name}")
             lines.append("        {")
             lines.append(f"            level ({surface.min_level} {surface.max_level});")
+            
+            if hasattr(surface, 'face_zone') and surface.face_zone:
+                lines.append(f"            faceZone {surface.face_zone};")
+            
+            if hasattr(surface, 'cell_zone') and surface.cell_zone:
+                lines.append(f"            cellZone {surface.cell_zone};")
+                
+                if hasattr(surface, 'cell_zone_inside'):
+                    lines.append(f"            cellZoneInside {surface.cell_zone_inside};")
             
             if surface.regions:
                 lines.append("")
@@ -213,7 +233,7 @@ def generate_snap_subdictionary(scene):
     lines.append("snapControls")
     lines.append("{")
     lines.append(f"    nSmoothPatch {scene.nSmoothPatch};")
-    lines.append(f"    tolerance {scene.tolerance};")
+    lines.append(f"    tolerance {_fmt(scene.tolerance)};")
     lines.append(f"    nSolveIter {scene.nSolveIter};")
     lines.append(f"    nRelaxIter {scene.nRelaxIter};")
     
@@ -241,22 +261,22 @@ def generate_layer_subdictionary(scene):
     # Add the thickness specification based on the selected mode
     mode = scene.thickness_mode
     if 'expansion' in mode and 'final' in mode:
-        lines.append(f"    expansionRatio {scene.expansionRatio};")
-        lines.append(f"    finalLayerThickness {scene.finalLayerThickness};")
+        lines.append(f"    expansionRatio {_fmt(scene.expansionRatio)};")
+        lines.append(f"    finalLayerThickness {_fmt(scene.finalLayerThickness)};")
     elif 'expansion' in mode and 'first' in mode:
-        lines.append(f"    expansionRatio {scene.expansionRatio};")
-        lines.append(f"    firstLayerThickness {scene.firstLayerThickness};")
+        lines.append(f"    expansionRatio {_fmt(scene.expansionRatio)};")
+        lines.append(f"    firstLayerThickness {_fmt(scene.firstLayerThickness)};")
     elif 'overall' in mode and 'first' in mode:
-        lines.append(f"    thickness {scene.overallThickness};")
-        lines.append(f"    firstLayerThickness {scene.firstLayerThickness};")
+        lines.append(f"    thickness {_fmt(scene.overallThickness)};")
+        lines.append(f"    firstLayerThickness {_fmt(scene.firstLayerThickness)};")
     elif 'overall' in mode and 'final' in mode:
-        lines.append(f"    thickness {scene.overallThickness};")
-        lines.append(f"    finalLayerThickness {scene.finalLayerThickness};")
+        lines.append(f"    thickness {_fmt(scene.overallThickness)};")
+        lines.append(f"    finalLayerThickness {_fmt(scene.finalLayerThickness)};")
     elif 'overall' in mode and 'expansion' in mode:
-        lines.append(f"    thickness {scene.overallThickness};")
-        lines.append(f"    expansionRatio {scene.expansionRatio};")
+        lines.append(f"    thickness {_fmt(scene.overallThickness)};")
+        lines.append(f"    expansionRatio {_fmt(scene.expansionRatio)};")
 
-    lines.append(f"    minThickness {scene.minThickness};")
+    lines.append(f"    minThickness {_fmt(scene.minThickness)};")
     
     # Layer per patch settings
     if len(scene.layer_patches) > 0:
@@ -271,9 +291,9 @@ def generate_layer_subdictionary(scene):
             lines.append(f"            nSurfaceLayers {patch.nSurfaceLayers};")
             
             if patch.custom_expansion:
-                lines.append(f"            expansionRatio      {patch.expansionRatio};")
-                lines.append(f"            finalLayerThickness {patch.finalLayerThickness};")
-                lines.append(f"            minThickness        {patch.minThickness};")
+                lines.append(f"            expansionRatio      {_fmt(patch.expansionRatio)};")
+                lines.append(f"            finalLayerThickness {_fmt(patch.finalLayerThickness)};")
+                lines.append(f"            minThickness        {_fmt(patch.minThickness)};")
             
             lines.append("        }")
         
@@ -326,53 +346,53 @@ def generate_quality_subdictionary(scene):
         # Always include error control parameters
         lines.append("")
         lines.append("    // Error control")
-        lines.append(f"    nSmoothScale {mesh_quality.nSmoothScale};")
-        lines.append(f"    errorReduction {mesh_quality.errorReduction};")
+        lines.append(f"    nSmoothScale {_fmt(mesh_quality.nSmoothScale)};")
+        lines.append(f"    errorReduction {_fmt(mesh_quality.errorReduction)};")
     else:
         # Standard quality constraints
-        lines.append(f"    maxNonOrtho {mesh_quality.maxNonOrtho};")
-        lines.append(f"    maxBoundarySkewness {mesh_quality.maxBoundarySkewness};")
-        lines.append(f"    maxInternalSkewness {mesh_quality.maxInternalSkewness};")
-        lines.append(f"    maxConcave {mesh_quality.maxConcave};")
-        lines.append(f"    minVol {mesh_quality.minVol};")
-        lines.append(f"    minTetQuality {mesh_quality.minTetQuality};")
-        lines.append(f"    minArea {mesh_quality.minArea};")
-        lines.append(f"    minTwist {mesh_quality.minTwist};")
-        lines.append(f"    minDeterminant {mesh_quality.minDeterminant};")
-        lines.append(f"    minFlatness {mesh_quality.minFlatness};")
-        lines.append(f"    minWeight {mesh_quality.minFaceWeight};")
-        lines.append(f"    minVolRatio {mesh_quality.minVolRatio};")
-        lines.append(f"    minTriangleTwist {mesh_quality.minTriangleTwist};")
+        lines.append(f"    maxNonOrtho {_fmt(mesh_quality.maxNonOrtho)};")
+        lines.append(f"    maxBoundarySkewness {_fmt(mesh_quality.maxBoundarySkewness)};")
+        lines.append(f"    maxInternalSkewness {_fmt(mesh_quality.maxInternalSkewness)};")
+        lines.append(f"    maxConcave {_fmt(mesh_quality.maxConcave)};")
+        lines.append(f"    minVol {_fmt(mesh_quality.minVol)};")
+        lines.append(f"    minTetQuality {_fmt(mesh_quality.minTetQuality)};")
+        lines.append(f"    minArea {_fmt(mesh_quality.minArea)};")
+        lines.append(f"    minTwist {_fmt(mesh_quality.minTwist)};")
+        lines.append(f"    minDeterminant {_fmt(mesh_quality.minDeterminant)};")
+        lines.append(f"    minFlatness {_fmt(mesh_quality.minFlatness)};")
+        lines.append(f"    minWeight {_fmt(mesh_quality.minFaceWeight)};")
+        lines.append(f"    minVolRatio {_fmt(mesh_quality.minVolRatio)};")
+        lines.append(f"    minTriangleTwist {_fmt(mesh_quality.minTriangleTwist)};")
         
         # Relaxed quality criteria
         relaxed = scene.relaxed_mesh_quality
         relaxed_settings = []
         if hasattr(relaxed, 'use_maxNonOrtho') and relaxed.use_maxNonOrtho:
-            relaxed_settings.append(f"        maxNonOrtho {relaxed.maxNonOrtho};")
+            relaxed_settings.append(f"        maxNonOrtho {_fmt(relaxed.maxNonOrtho)};")
         if hasattr(relaxed, 'use_maxBoundarySkewness') and relaxed.use_maxBoundarySkewness:
-            relaxed_settings.append(f"        maxBoundarySkewness {relaxed.maxBoundarySkewness};")
+            relaxed_settings.append(f"        maxBoundarySkewness {_fmt(relaxed.maxBoundarySkewness)};")
         if hasattr(relaxed, 'use_maxInternalSkewness') and relaxed.use_maxInternalSkewness:
-            relaxed_settings.append(f"        maxInternalSkewness {relaxed.maxInternalSkewness};")
+            relaxed_settings.append(f"        maxInternalSkewness {_fmt(relaxed.maxInternalSkewness)};")
         if hasattr(relaxed, 'use_maxConcave') and relaxed.use_maxConcave:
-            relaxed_settings.append(f"        maxConcave {relaxed.maxConcave};")
+            relaxed_settings.append(f"        maxConcave {_fmt(relaxed.maxConcave)};")
         if hasattr(relaxed, 'use_minFlatness') and relaxed.use_minFlatness:
-            relaxed_settings.append(f"        minFlatness {relaxed.minFlatness};")
+            relaxed_settings.append(f"        minFlatness {_fmt(relaxed.minFlatness)};")
         if hasattr(relaxed, 'use_minVol') and relaxed.use_minVol:
-            relaxed_settings.append(f"        minVol {relaxed.minVol};")
+            relaxed_settings.append(f"        minVol {_fmt(relaxed.minVol)};")
         if hasattr(relaxed, 'use_minTetQuality') and relaxed.use_minTetQuality:
-            relaxed_settings.append(f"        minTetQuality {relaxed.minTetQuality};")
+            relaxed_settings.append(f"        minTetQuality {_fmt(relaxed.minTetQuality)};")
         if hasattr(relaxed, 'use_minArea') and relaxed.use_minArea:
-            relaxed_settings.append(f"        minArea {relaxed.minArea};")
+            relaxed_settings.append(f"        minArea {_fmt(relaxed.minArea)};")
         if hasattr(relaxed, 'use_minTwist') and relaxed.use_minTwist:
-            relaxed_settings.append(f"        minTwist {relaxed.minTwist};")
+            relaxed_settings.append(f"        minTwist {_fmt(relaxed.minTwist)};")
         if hasattr(relaxed, 'use_minDeterminant') and relaxed.use_minDeterminant:
-            relaxed_settings.append(f"        minDeterminant {relaxed.minDeterminant};")
+            relaxed_settings.append(f"        minDeterminant {_fmt(relaxed.minDeterminant)};")
         if hasattr(relaxed, 'use_minFaceWeight') and relaxed.use_minFaceWeight:
-            relaxed_settings.append(f"        minWeight {relaxed.minFaceWeight};")
+            relaxed_settings.append(f"        minWeight {_fmt(relaxed.minFaceWeight)};")
         if hasattr(relaxed, 'use_minVolRatio') and relaxed.use_minVolRatio:
-            relaxed_settings.append(f"        minVolRatio {relaxed.minVolRatio};")
+            relaxed_settings.append(f"        minVolRatio {_fmt(relaxed.minVolRatio)};")
         if hasattr(relaxed, 'use_minTriangleTwist') and relaxed.use_minTriangleTwist:
-            relaxed_settings.append(f"        minTriangleTwist {relaxed.minTriangleTwist};")
+            relaxed_settings.append(f"        minTriangleTwist {_fmt(relaxed.minTriangleTwist)};")
         
         if relaxed_settings:
             lines.append("")
@@ -385,8 +405,8 @@ def generate_quality_subdictionary(scene):
         # Error control
         lines.append("")
         lines.append("    // Error control")
-        lines.append(f"    nSmoothScale {mesh_quality.nSmoothScale};")
-        lines.append(f"    errorReduction {mesh_quality.errorReduction};")
+        lines.append(f"    nSmoothScale {_fmt(mesh_quality.nSmoothScale)};")
+        lines.append(f"    errorReduction {_fmt(mesh_quality.errorReduction)};")
 
     lines.append("}")
     return lines

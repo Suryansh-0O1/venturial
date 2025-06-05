@@ -516,7 +516,7 @@ def register():
     
     bpy.types.Scene.stl_file = StringProperty(name="STL File", default="")
     bpy.types.Scene.stl_file_name = StringProperty(name="STL File Name", default="")
-    # Add STL region collection and index
+    bpy.types.Scene.stl_custom_name = StringProperty(name="Custom STL Name", default="")
     bpy.types.Scene.stl_regions = CollectionProperty(type=StlRegionItem)
     bpy.types.Scene.stl_regions_index = IntProperty(default=0)
     bpy.types.Scene.search_tuts = StringProperty(default="Search Tutorials")
