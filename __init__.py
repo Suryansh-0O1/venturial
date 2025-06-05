@@ -826,17 +826,19 @@ def register():
         items=get_active_projects,
     )
 
-    bpy.types.Scene.geometry_items = CollectionProperty(type=fileitemproperties)  # Reusing existing class
+    bpy.types.Scene.geometry_items = CollectionProperty(type=fileitemproperties)
     bpy.types.Scene.geometry_items_index = IntProperty(
         name="Geometry Items Index",
         default=0,
         update=geometry_index_update
     )
 
+    # Main SnappyHexMesh controls
     bpy.types.Scene.castellatedMesh = BoolProperty(name="Castellated Mesh", default=False)
     bpy.types.Scene.snap = BoolProperty(name="Snap", default=False)
     bpy.types.Scene.addLayers = BoolProperty(name="Add Layers", default=False)
 
+    # Castellated mesh controls
     bpy.types.Scene.maxLocalCells = IntProperty(
         name="Max Local Cells",
         description="Maximum local cells for castellated mesh",

@@ -10,7 +10,12 @@ import os
 # --- DATA STRUCTURES ---
 
 class DistanceLevelPair(PropertyGroup):
-    """Distance-level pair for refinement control"""
+    """
+    Distance-level pair for refinement control.
+    
+    Defines a relationship between distance from geometry and the desired refinement level,
+    allowing for gradual transitions in mesh resolution.
+    """
     distance: FloatProperty(
         name="Distance",
         description="Distance from surface where refinement level changes. Measured in mesh units from the specified geometry. Smaller values create refinement closer to the surface.",
@@ -26,7 +31,12 @@ class DistanceLevelPair(PropertyGroup):
     )
 
 class CastellatedFeature(PropertyGroup):
-    """Feature edge specification for castellated mesh"""
+    """
+    Feature edge specification for castellated mesh.
+    
+    Controls how explicit feature edges are refined during the castellated mesh stage.
+    These features are typically sharp edges that require special attention for accurate meshing.
+    """
     file: StringProperty(
         name="File",
         description="Path to eMesh file containing feature edges. This file defines explicit edges requiring special refinement, typically sharp edges exported from CAD or extracted using surfaceFeatureExtract utility.",
@@ -68,7 +78,12 @@ class CastellatedFeature(PropertyGroup):
     # Collection property added during registration
 
 class PatchInfo(PropertyGroup):
-    """Patch information for boundary regions"""
+    """
+    Patch information for boundary regions.
+    
+    Defines how boundary patches are treated in the simulation,
+    including the type of boundary condition and grouping information.
+    """
     patch_type: EnumProperty(
         name="Type",
         description="Type of boundary condition to apply to this surface region:\n• Patch: Standard boundary with value specification\n• Wall: Solid wall boundary (no-slip typically)\n• Symmetry: Mirror symmetry plane (no flow across)\n• Empty: Empty patch for 2D simulations\n• Wedge: For axisymmetric simulations",
@@ -89,7 +104,12 @@ class PatchInfo(PropertyGroup):
     )
 
 class RefinementSurfaceRegion(PropertyGroup):
-    """Region within a refinement surface with specific settings"""
+    """
+    Region within a refinement surface with specific settings.
+    
+    Allows defining different refinement levels and boundary conditions
+    for specific regions within a surface geometry.
+    """
     name: StringProperty(
         name="Name",
         description="Name identifying this region in the mesh. Region names should be descriptive (e.g., 'inlet', 'outlet', 'wing_surface') and match those defined in the STL file if applicable.",
@@ -255,7 +275,12 @@ class RefinementRegion(PropertyGroup):
 # --- OPERATORS ---
 
 class VNT_OT_add_feature(Operator, ImportHelper):
-    """Add a feature edge file for refinement"""
+    """
+    Add a feature edge file for refinement.
+    
+    Allows selecting an eMesh file containing feature edges that require special
+    refinement during the snappyHexMesh process.
+    """
     bl_idname = "vnt.add_feature"
     bl_label = "Add Feature"
     
@@ -508,7 +533,11 @@ class VNT_OT_remove_distance_level_pair(Operator):
 # --- UI LIST CLASSES ---
 
 class CAST_UL_features_list(UIList):
-    """Display list of feature edges for refinement"""
+    """
+    Display list of feature edges for refinement.
+    
+    Shows the filename and refinement settings for each feature edge file in the UI.
+    """
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)

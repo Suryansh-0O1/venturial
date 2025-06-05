@@ -1,7 +1,12 @@
 """
-Tooltip Updater module - Updates property descriptions with detailed tooltips.
-This approach allows us to keep detailed tooltips in a separate file but still
-use them in the Blender UI via property descriptions.
+Tooltip Updater Module
+
+This module is responsible for synchronizing detailed tooltips from separate tooltip
+definition files with Blender property descriptions. It allows for centralized management
+of detailed documentation that appears in the Blender UI.
+
+The module updates property descriptions at addon registration time, ensuring that
+users have access to comprehensive information about each parameter directly in the UI.
 """
 
 import bpy
@@ -13,10 +18,30 @@ from venturial.models.snappyhexmesh.tooltips import (
     DICTIONARY_TOOLTIPS
 )
 
+
 def update_property_descriptions():
-    """Updates property descriptions with detailed tooltips from our tooltips files"""
+    """
+    Updates all property descriptions with detailed tooltips from tooltip dictionaries.
+    
+    This function processes all SnappyHexMesh properties by category and applies
+    the corresponding tooltip text to each property's description field in Blender.
+    """
     
     # Castellated mesh properties
+    _update_castellated_properties()
+    
+    # Snap properties
+    _update_snap_properties()
+    
+    # Layer addition properties
+    _update_layer_properties()
+    
+    # Mesh quality properties
+    _update_quality_properties()
+
+
+def _update_castellated_properties():
+    """Update all castellated mesh property descriptions."""
     update_property("castellatedMesh", CASTELLATED_TOOLTIPS)
     update_property("maxLocalCells", CASTELLATED_TOOLTIPS)
     update_property("maxGlobalCells", CASTELLATED_TOOLTIPS)
@@ -33,8 +58,10 @@ def update_property_descriptions():
     update_property("useTopologicalSnapDetection", CASTELLATED_TOOLTIPS)
     update_property("use_gap_level", CASTELLATED_TOOLTIPS)
     update_property("gap_level_increment", CASTELLATED_TOOLTIPS)
-    
-    # Snap properties
+
+
+def _update_snap_properties():
+    """Update all snap control property descriptions."""
     update_property("snap", SNAP_TOOLTIPS)
     update_property("tolerance", SNAP_TOOLTIPS)
     update_property("nSmoothPatch", SNAP_TOOLTIPS)
@@ -45,8 +72,10 @@ def update_property_descriptions():
     update_property("implicitFeatureSnap", SNAP_TOOLTIPS)
     update_property("explicitFeatureSnap", SNAP_TOOLTIPS)
     update_property("multiRegionFeatureSnap", SNAP_TOOLTIPS)
-    
-    # Layer addition properties
+
+
+def _update_layer_properties():
+    """Update all layer addition property descriptions."""
     update_property("addLayers", LAYER_TOOLTIPS)
     update_property("relativeSizes", LAYER_TOOLTIPS)
     update_property("thickness_mode", LAYER_TOOLTIPS)
@@ -70,8 +99,10 @@ def update_property_descriptions():
     update_property("nRelaxedIter", LAYER_TOOLTIPS)
     update_property("additionalReporting", LAYER_TOOLTIPS)
     update_property("detectExtrusionIsland", LAYER_TOOLTIPS)
-    
-    # Mesh quality properties
+
+
+def _update_quality_properties():
+    """Update all mesh quality property descriptions."""
     update_property("includeMeshQualityDict", QUALITY_TOOLTIPS)
     update_property("meshQualityDictPath", QUALITY_TOOLTIPS)
     update_property("maxNonOrtho", QUALITY_TOOLTIPS)
@@ -85,28 +116,66 @@ def update_property_descriptions():
     update_property("nSmoothScale", QUALITY_TOOLTIPS)
     update_property("errorReduction", QUALITY_TOOLTIPS)
 
+
 def update_property(prop_name, tooltip_dict):
-    """Updates the description of a single property"""
-    # Ensure the property exists in scene and in tooltip dictionary
-    if hasattr(bpy.types.Scene, prop_name) and prop_name in tooltip_dict:
-        prop = getattr(bpy.types.Scene, prop_name)
-        # Get property definition
+    """
+    Updates the description of a single property with its tooltip text.
+    
+    Args:
+        prop_name (str): The name of the property to update
+        tooltip_dict (dict): Dictionary containing tooltip texts keyed by property name
+    
+    Returns:
+        bool: True if the property was successfully updated, False otherwise
+    """
+    # Validate inputs
+    if not prop_name or not isinstance(tooltip_dict, dict):
+        return False
+        
+    # Check if property exists in Scene and in tooltip dictionary
+    if not hasattr(bpy.types.Scene, prop_name):
+        return False
+        
+    # Get tooltip text
+    tooltip_text = None
+    if prop_name in tooltip_dict:
+        tooltip_text = tooltip_dict[prop_name]
+    else:
+        return False
+    
+    prop = getattr(bpy.types.Scene, prop_name)
+    
+    try:
         if hasattr(prop, "__annotations__"):
-            # Find the property definition and update its description
             for key, value in prop.__annotations__.items():
                 if key == prop_name:
-                    # Update description
-                    value[1]["description"] = tooltip_dict[prop_name]
-                    break
-        # For directly defined properties
+                    value[1]["description"] = tooltip_text
+                    return True
+                    
         elif hasattr(prop, "keywords") and "description" in prop.keywords:
-            prop.keywords["description"] = tooltip_dict[prop_name]
+            prop.keywords["description"] = tooltip_text
+            return True
+            
+    except (KeyError, AttributeError, TypeError) as e:
+        import logging
+        logging.debug(f"Failed to update tooltip for {prop_name}: {str(e)}")
+        
+    return False
+
 
 def register():
-    """Called when the addon is enabled"""
-    # Update tooltips after all properties are registered
+    """
+    Called when the addon is enabled.
+    
+    Updates all tooltips after properties are registered.
+    """
     update_property_descriptions()
 
+
 def unregister():
-    """Called when the addon is disabled"""
+    """
+    Called when the addon is disabled.
+    
+    No special action needed for tooltips when unregistering.
+    """
     pass

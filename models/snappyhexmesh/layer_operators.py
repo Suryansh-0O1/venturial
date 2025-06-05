@@ -9,9 +9,13 @@ from bpy.props import (StringProperty, FloatProperty, IntProperty,
 #--------------------------------------------------
 
 class LayerPatchSettings(PropertyGroup):
-    """Layer settings for individual patches in boundary layer mesh generation"""
+    """
+    Layer settings for individual patches in boundary layer mesh generation.
     
-    # Basic patch identification
+    This property group stores all the settings needed for configuring
+    boundary layer generation on specific patches.
+    """
+    
     name: StringProperty(
         name="Patch Name",
         description="Name of the patch",
@@ -25,7 +29,6 @@ class LayerPatchSettings(PropertyGroup):
         min=0
     )
     
-    # Custom expansion settings
     custom_expansion: BoolProperty(
         name="Custom Expansion",
         description="Use custom expansion settings for this patch",
@@ -54,7 +57,6 @@ class LayerPatchSettings(PropertyGroup):
         min=0.0
     )
     
-    # Advanced layer distribution settings
     use_advanced_settings: BoolProperty(
         name="Use Advanced Settings",
         description="Directly specify layer distribution parameters",
@@ -72,7 +74,6 @@ class LayerPatchSettings(PropertyGroup):
         default='gradual'
     )
     
-    # Mesh quality controls
     mesh_quality_controls: BoolProperty(
         name="Custom Mesh Quality",
         description="Use custom mesh quality settings for this patch",
@@ -89,16 +90,19 @@ class LayerPatchSettings(PropertyGroup):
 
 
 class LayerAdditionProperties(PropertyGroup):
-    """Main properties for snappyHexMesh layer addition controls"""
+    """
+    Main properties for snappyHexMesh layer addition controls.
     
-    # Basic layer sizing
+    Contains all the parameters needed for configuring the boundary
+    layer addition process in snappyHexMesh.
+    """
+    
     relativeSizes: BoolProperty(
         name="Relative Sizes",
         description="Are thickness parameters relative to cell size or absolute",
         default=True
     )
     
-    # Layer thickness specification
     thickness_mode: EnumProperty(
         name="Thickness Mode",
         description="Method for specifying layer thickness",
@@ -112,7 +116,6 @@ class LayerAdditionProperties(PropertyGroup):
         default='expansion_final'
     )
     
-    # Expansion parameters
     expansionRatio: FloatProperty(
         name="Expansion Ratio",
         description="Expansion factor for layer mesh",
@@ -121,7 +124,6 @@ class LayerAdditionProperties(PropertyGroup):
         max=10.0
     )
     
-    # Layer thickness parameters
     finalLayerThickness: FloatProperty(
         name="Final Layer Thickness",
         description="Thickness of layer furthest from wall",
@@ -150,7 +152,6 @@ class LayerAdditionProperties(PropertyGroup):
         min=0.0
     )
     
-    # Feature handling parameters
     featureAngle: FloatProperty(
         name="Feature Angle",
         description="Angle at which to not extrude surface",
@@ -159,7 +160,6 @@ class LayerAdditionProperties(PropertyGroup):
         max=180.0
     )
     
-    # Growth parameters
     nGrow: IntProperty(
         name="Grow Layers",
         description="Number of layers of connected faces to grow",
@@ -167,7 +167,6 @@ class LayerAdditionProperties(PropertyGroup):
         min=0
     )
     
-    # Surface normal parameters
     nSmoothSurfaceNormals: IntProperty(
         name="Smooth Surface Normals",
         description="Smoothing iterations for surface normals",
@@ -182,7 +181,6 @@ class LayerAdditionProperties(PropertyGroup):
         min=0
     )
     
-    # Quality control parameters
     maxFaceThicknessRatio: FloatProperty(
         name="Max Face Thickness Ratio",
         description="Stop layer growth on highly warped cells",
@@ -191,7 +189,6 @@ class LayerAdditionProperties(PropertyGroup):
         max=1.0
     )
     
-    # Medial axis parameters
     minMedialAxisAngle: FloatProperty(
         name="Min Medial Axis Angle",
         description="Angle used to pick up medial axis points",
@@ -215,7 +212,6 @@ class LayerAdditionProperties(PropertyGroup):
         min=0
     )
     
-    # Mesh convergence parameters
     slipFeatureAngle: FloatProperty(
         name="Slip Feature Angle",
         description="Angle above which mesh can slip at non-patched sides",
@@ -252,14 +248,12 @@ class LayerAdditionProperties(PropertyGroup):
         min=0
     )
     
-    # Output control
     additionalReporting: BoolProperty(
         name="Additional Reporting",
         description="Report problematic face centers",
         default=False
     )
     
-    # Layer generation strategy
     layer_strategy: EnumProperty(
         name="Layer Strategy",
         description="Strategy for layer addition",
@@ -276,7 +270,12 @@ class LayerAdditionProperties(PropertyGroup):
 #--------------------------------------------------
 
 class VNT_OT_add_layer_patch(Operator):
-    """Add a new patch for boundary layer meshing"""
+    """
+    Add a new patch for boundary layer meshing.
+    
+    Creates a new entry in the layer_patches collection with the specified
+    name and number of surface layers.
+    """
     bl_idname = "vnt.add_layer_patch"
     bl_label = "Add Layer Patch"
     
@@ -315,7 +314,11 @@ class VNT_OT_add_layer_patch(Operator):
 
 
 class VNT_OT_remove_layer_patch(Operator):
-    """Remove the selected layer patch"""
+    """
+    Remove the selected layer patch.
+    
+    Deletes the currently selected layer patch from the layer_patches collection.
+    """
     bl_idname = "vnt.remove_layer_patch"
     bl_label = "Remove Layer Patch"
     
@@ -342,7 +345,12 @@ class VNT_OT_remove_layer_patch(Operator):
 
 
 class VNT_OT_duplicate_layer_patch(Operator):
-    """Duplicate the selected layer patch with all its settings"""
+    """
+    Duplicate the selected layer patch with all its settings.
+    
+    Creates a new patch as a copy of the currently selected patch,
+    preserving all property values.
+    """
     bl_idname = "vnt.duplicate_layer_patch"
     bl_label = "Duplicate Layer Patch"
     
@@ -373,7 +381,12 @@ class VNT_OT_duplicate_layer_patch(Operator):
 
 
 class VNT_OT_import_boundary_patches(Operator):
-    """Import patches from boundary conditions in BlockMesh dictionary"""
+    """
+    Import patches from boundary conditions in BlockMesh dictionary.
+    
+    Retrieves boundary definitions from the BlockMesh settings and
+    creates corresponding layer patches.
+    """
     bl_idname = "vnt.import_boundary_patches"
     bl_label = "Import from Boundaries"
     
@@ -429,7 +442,12 @@ class VNT_OT_import_boundary_patches(Operator):
 
 
 class VNT_OT_configure_layer_settings(Operator):
-    """Configure advanced layer addition settings"""
+    """
+    Configure advanced layer addition settings.
+    
+    Presents a dialog with all the available settings for controlling
+    the layer addition process in snappyHexMesh.
+    """
     bl_idname = "vnt.configure_layer_settings"
     bl_label = "Layer Addition Settings"
     
@@ -525,12 +543,17 @@ class VNT_OT_configure_layer_settings(Operator):
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width=450)
 
+
 #--------------------------------------------------
 # UI LIST CLASSES
 #--------------------------------------------------
 
 class LAYER_UL_patches_list(bpy.types.UIList):
-    """UI list for displaying and selecting layer patches"""
+    """
+    UI list for displaying and selecting layer patches.
+    
+    Displays patch names, layer counts, and indicators for custom settings.
+    """
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:

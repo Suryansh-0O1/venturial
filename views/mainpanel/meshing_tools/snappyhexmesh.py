@@ -1,3 +1,20 @@
+"""
+SnappyHexMesh Interface Module.
+
+This module provides a comprehensive user interface for OpenFOAM's snappyHexMesh utility within Blender.
+It organizes the complex settings into logical tabs and sub-tabs for better user experience.
+
+The interface is divided into major sections:
+- Geometry: For defining and exporting STL geometry
+- Castellated: For controlling the castellated mesh generation phase
+- Snap: For controlling the surface snapping phase
+- LayerControl: For controlling the boundary layer addition phase
+- MeshQuality: For setting mesh quality constraints
+- Dictionary: For final settings and dictionary generation
+
+Each section contains relevant controls organized in a user-friendly manner.
+"""
+
 import bpy
 import os
 from bpy.app.handlers import persistent
@@ -6,7 +23,6 @@ from bpy.app.handlers import persistent
 from venturial.models.snappyhexmesh.geometry_operators import VNT_OT_create_new_geometry, VNT_OT_delete_geometry
 from venturial.models.snappyhexmesh.file_operators import VNT_OT_export_stl_geometry
 from venturial.models.snappyhexmesh.dictionary_operators import VNT_OT_generate_snappyhex_dict
-# Import the new dictionary writer module
 from venturial.models.snappyhexmesh.dictionary_writers import (
     generate_geometry_subdictionary,
     generate_castellated_subdictionary,
@@ -17,7 +33,6 @@ from venturial.models.snappyhexmesh.dictionary_writers import (
     format_lines_for_preview
 )
 
-# Import tooltips but use a different approach for displaying them
 from venturial.models.snappyhexmesh.tooltips import (
     CASTELLATED_TOOLTIPS,
     SNAP_TOOLTIPS,
@@ -26,11 +41,24 @@ from venturial.models.snappyhexmesh.tooltips import (
     DICTIONARY_TOOLTIPS
 )
 
+
 class snappyhexmesh_menu:
-    """Main menu handler for SnappyHexMesh interface, providing tabbed access to all settings"""
+    """
+    Main menu handler for SnappyHexMesh interface.
+    
+    This class provides a tabbed interface to access all settings related to snappyHexMesh.
+    The UI is divided into logical sections with sub-tabs for better organization of the
+    complex parameter set required for mesh generation.
+    """
     
     def layout(self, tools, context):
-        """Main layout handler that dispatches to the appropriate tab"""
+        """
+        Main layout handler that dispatches to the appropriate tab.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         # Route to the appropriate tab method based on current selection
@@ -52,7 +80,15 @@ class snappyhexmesh_menu:
             self.geometry_tab(tools, context)
     
     def geometry_tab(self, tools, context):
-        """Geometry import/export and management interface"""
+        """
+        Geometry import/export and management interface.
+        
+        Provides controls for importing, exporting and managing STL geometry.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         # Tab selection row
@@ -69,7 +105,16 @@ class snappyhexmesh_menu:
             self.geometry_preview_tab(tools, context)
     
     def geometry_define_tab(self, tools, context):
-        """Definition interface for geometry import/export and management"""
+        """
+        Definition interface for geometry import/export and management.
+        
+        Provides controls for selecting STL files, importing/exporting geometry, and 
+        managing STL regions and user-defined geometry.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
 
         # STL File section
@@ -86,7 +131,7 @@ class snappyhexmesh_menu:
         row.label(text="STL File Name")
         row.prop(cs, "stl_file_name", text="")
         
-        # Add new field for custom STL name
+        # Custom STL name field
         row = tools.row(align=True)
         row.label(text="Custom STL Name")
         row.prop(cs, "stl_custom_name", text="")
@@ -96,7 +141,6 @@ class snappyhexmesh_menu:
             regions_box = tools.box()
             regions_header = regions_box.row()
             regions_header.label(text="STL Regions", icon="OUTLINER_OB_SURFACE")
-            # Removed the duplicate add button from header
             
             row = regions_box.row()
             row.template_list("STL_UL_regions", "", cs, "stl_regions", 
@@ -121,13 +165,21 @@ class snappyhexmesh_menu:
         col_button.operator("vnt.delete_geometry", text="", icon="REMOVE")
 
     def geometry_preview_tab(self, tools, context):
-        """Preview tab for geometry dictionary settings"""
+        """
+        Preview tab for geometry dictionary settings.
+        
+        Displays a preview of the geometry dictionary that will be generated.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         preview_box = tools.box()
         preview_box.label(text="Geometry Dictionary Preview", icon="TEXT")
         
-        # Use dictionary writer to generate preview
+        # Generate preview using dictionary writer
         lines = generate_geometry_subdictionary(cs)
         lines = format_lines_for_preview(lines)
         
@@ -146,7 +198,16 @@ class snappyhexmesh_menu:
             row.label(text="Go to 'Define' tab and add geometry objects")
 
     def castellated_tab(self, tools, context):
-        """Castellated mesh creation settings interface with tabs for better organization"""
+        """
+        Castellated mesh creation settings interface.
+        
+        Provides a tabbed interface for all settings related to castellated mesh generation,
+        including general settings, feature refinement, surface refinement, and region refinement.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         box = tools.box()
         box.label(text="Castellation Options")
@@ -179,10 +240,19 @@ class snappyhexmesh_menu:
             self.castellated_preview_tab(tools, context)
     
     def castellated_general_tab(self, tools, context):
-        """General settings tab for castellated mesh"""
+        """
+        General settings tab for castellated mesh.
+        
+        Provides controls for basic refinement parameters such as cell count limits
+        and mesh balance settings.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
-        # --- SECTION 1: GENERAL REFINEMENT PARAMETERS ---
+        # Global refinement parameters section
         ref_box = tools.box()
         ref_box.label(text="Global Refinement Parameters", icon="SETTINGS")
         
@@ -212,7 +282,16 @@ class snappyhexmesh_menu:
         row.prop(cs, "nCellsBetweenLevels", text="")
 
     def castellated_features_tab(self, tools, context):
-        """Feature edge refinement tab for castellated mesh"""
+        """
+        Feature edge refinement tab for castellated mesh.
+        
+        Provides controls for refining mesh along feature edges with options for
+        different refinement modes (uniform, distance-based).
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         feature_box = tools.box()
@@ -311,10 +390,18 @@ class snappyhexmesh_menu:
             info_row.label(text="No features defined. Click '+' to add feature edges.", icon="INFO")
     
     def castellated_surfaces_tab(self, tools, context):
-        """Surface refinement tab for castellated mesh"""
+        """
+        Surface refinement tab for castellated mesh.
+        
+        Provides controls for refining mesh at geometric surfaces with options for
+        different levels of refinement and region-specific settings.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
-        # --- SECTION: SURFACE REFINEMENT ---
         surface_box = tools.box()
         surface_box.label(text="Surface Refinement", icon="SURFACE_DATA")
         
@@ -464,10 +551,18 @@ class snappyhexmesh_menu:
                     help_row.label(text="No regions defined - click '+' to add regions", icon="INFO")
 
     def castellated_regions_tab(self, tools, context):
-        """Region refinement tab for castellated mesh"""
+        """
+        Region refinement tab for castellated mesh.
+        
+        Provides controls for refining mesh in specific regions with options for
+        distance-based and inside/outside refinement.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
-        # --- SECTION: REGION REFINEMENT ---
         region_refine_box = tools.box()
         region_refine_box.label(text="Region Refinement", icon="MESH_CUBE")
         
@@ -553,10 +648,19 @@ class snappyhexmesh_menu:
             row.label(text="No refinement regions defined - click '+' to add", icon="INFO")
 
     def castellated_advanced_tab(self, tools, context):
-        """Advanced settings tab for castellated mesh"""
+        """
+        Advanced settings tab for castellated mesh.
+        
+        Provides controls for advanced castellated mesh settings like feature angle
+        resolution and mesh location settings.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
-        # --- SECTION 1: FEATURE ANGLE SETTINGS ---
+        # Feature angle settings
         feature_angle_box = tools.box()
         feature_angle_box.label(text="Feature Angle Settings", icon="MOD_BEVEL")
         
@@ -568,7 +672,7 @@ class snappyhexmesh_menu:
         row.label(text="Planar Angle:")
         row.prop(cs, "planarAngle", text="")
         
-        # --- SECTION 2: MESH SELECTION ---
+        # Mesh selection settings
         mesh_sel_box = tools.box()
         mesh_sel_box.label(text="Mesh Selection", icon="ORIENTATION_CURSOR")
         
@@ -596,13 +700,22 @@ class snappyhexmesh_menu:
         row.prop(cs, "useTopologicalSnapDetection", text="Use Topological Snap Detection")
     
     def castellated_preview_tab(self, tools, context):
-        """Preview tab showing the generated castellated mesh dictionary"""
+        """
+        Preview tab showing the generated castellated mesh dictionary.
+        
+        Displays a formatted preview of the OpenFOAM dictionary entries that will be generated
+        for the castellated mesh phase.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         preview_box = tools.box()
         preview_box.label(text="Dictionary Preview", icon="TEXT")
         
-        # Use dictionary writer to generate preview
+        # Generate preview using dictionary writer
         lines = generate_castellated_subdictionary(cs)
         lines = format_lines_for_preview(lines)
         
@@ -614,7 +727,16 @@ class snappyhexmesh_menu:
             preview_col.label(text=line)
 
     def snap_tab(self, tools, context):
-        """Snap settings interface with tabs for better organization"""
+        """
+        Snap settings interface with tabs for better organization.
+        
+        Controls the surface snapping phase of snappyHexMesh with options for basic
+        snapping parameters and feature edge snapping.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         # Master enable switch with icon
@@ -646,7 +768,16 @@ class snappyhexmesh_menu:
             self.snap_preview_tab(tools, context)
     
     def snap_basic_tab(self, tools, context):
-        """Basic snap settings tab"""
+        """
+        Basic snap settings tab.
+        
+        Provides controls for basic snapping parameters like smoothing iterations,
+        tolerance, and solver settings.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         # Basic snapping parameters section
@@ -674,7 +805,16 @@ class snappyhexmesh_menu:
         row.prop(cs, "nRelaxIter", text="")
         
     def snap_features_tab(self, tools, context):
-        """Feature snapping settings tab"""
+        """
+        Feature snapping settings tab.
+        
+        Provides controls for feature edge detection and snapping with options for
+        implicit and explicit feature detection.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         # Feature snapping section
@@ -712,13 +852,22 @@ class snappyhexmesh_menu:
                     text="Multi-region Feature Detection")
     
     def snap_preview_tab(self, tools, context):
-        """Preview tab for snap settings"""
+        """
+        Preview tab for snap settings.
+        
+        Displays a formatted preview of the OpenFOAM dictionary entries that will be generated
+        for the snap phase.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         preview_box = tools.box()
         preview_box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         
-        # Use dictionary writer to generate preview
+        # Generate preview using dictionary writer
         lines = generate_snap_subdictionary(cs)
         lines = format_lines_for_preview(lines)
         
@@ -730,7 +879,16 @@ class snappyhexmesh_menu:
             col.label(text=line)
 
     def layercontrol_tab(self, tools, context):
-        """Layer addition settings interface with tabs for better organization"""
+        """
+        Layer addition settings interface with tabs for better organization.
+        
+        Controls the boundary layer addition phase of snappyHexMesh with options for
+        layer thickness, features handling, and patch-specific settings.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         # Master enable switch with icon
@@ -767,7 +925,15 @@ class snappyhexmesh_menu:
             self.layer_preview_tab(tools, context)
     
     def layer_basic_tab(self, tools, context):
-        """Basic layer addition settings tab"""
+        """
+        Basic layer addition settings tab.
+        
+        Provides controls for layer thickness parameters and relative sizing options.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         basic_box = tools.box()
@@ -815,7 +981,16 @@ class snappyhexmesh_menu:
         row.prop(cs, "minThickness", text="")
     
     def layer_features_tab(self, tools, context):
-        """Feature handling for layer addition"""
+        """
+        Feature handling for layer addition.
+        
+        Provides controls for feature edge handling during layer addition with options
+        for feature angle and growth layers.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         feature_box = tools.box()
@@ -837,7 +1012,16 @@ class snappyhexmesh_menu:
         row.prop(cs, "detectExtrusionIsland", text="Detect Extrusion Islands")
     
     def layer_patches_tab(self, tools, context):
-        """Patch-specific layer settings tab"""
+        """
+        Patch-specific layer settings tab.
+        
+        Provides controls for setting patch-specific layer parameters with options
+        to customize layer thickness and count on specific patches.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         patches_box = tools.box()
@@ -896,7 +1080,16 @@ class snappyhexmesh_menu:
             row.label(text="Add patches using the + button", icon="INFO")
     
     def layer_advanced_tab(self, tools, context):
-        """Advanced layer addition settings"""
+        """
+        Advanced layer addition settings.
+        
+        Provides controls for advanced layer addition parameters like medial axis
+        analysis, mesh shrinking, and quality controls.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         adv_box = tools.box()
@@ -966,13 +1159,22 @@ class snappyhexmesh_menu:
         row.prop(cs, "additionalReporting", text="Generate Additional Reports")
     
     def layer_preview_tab(self, tools, context):
-        """Preview tab for layer addition settings"""
+        """
+        Preview tab for layer addition settings.
+        
+        Displays a formatted preview of the OpenFOAM dictionary entries that will be generated
+        for the layer addition phase.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         preview_box = tools.box()
         preview_box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         
-        # Use dictionary writer to generate preview
+        # Generate preview using dictionary writer
         lines = generate_layer_subdictionary(cs)
         lines = format_lines_for_preview(lines)
         
@@ -990,7 +1192,16 @@ class snappyhexmesh_menu:
             col.label(text=line)
 
     def meshquality_tab(self, tools, context):
-        """Mesh quality settings interface with tabs for better organization"""
+        """
+        Mesh quality settings interface with tabs for better organization.
+        
+        Controls the mesh quality constraints with options for standard and advanced
+        quality parameters, error handling, and external dictionary integration.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         mesh_quality = cs.mesh_quality
         
@@ -1037,9 +1248,9 @@ class snappyhexmesh_menu:
             # Add the tab button
             sub.prop_enum(cs, "quality_tab", tab_id, text=tab_name)
         
-        # Fix: Only force tab switch if not already on an allowed tab
+        # Force tab switch if not already on an allowed tab when using external dict
         if mesh_quality.includeMeshQualityDict and cs.quality_tab not in ['ERROR', 'PREVIEW']:
-            cs.quality_tab = 'ERROR'  # Default to ERROR tab when using external dict
+            cs.quality_tab = 'ERROR'
         
         tools.separator(factor=0.5)
         
@@ -1054,7 +1265,16 @@ class snappyhexmesh_menu:
             self.quality_preview_tab(tools, context)
     
     def quality_standard_tab(self, tools, context):
-        """Standard quality constraints tab"""
+        """
+        Standard quality constraints tab.
+        
+        Provides controls for standard mesh quality constraints like non-orthogonality,
+        skewness, and cell shape quality.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         mesh_quality = cs.mesh_quality
         
@@ -1097,7 +1317,16 @@ class snappyhexmesh_menu:
         row.prop(mesh_quality, "minTetQuality", text="")
     
     def quality_advanced_tab(self, tools, context):
-        """Advanced quality settings tab"""
+        """
+        Advanced quality settings tab.
+        
+        Provides controls for advanced mesh quality parameters like determinant,
+        face weights, and volume ratios.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         mesh_quality = cs.mesh_quality
         
@@ -1136,7 +1365,15 @@ class snappyhexmesh_menu:
         row.prop(mesh_quality, "minTriangleTwist", text="")
     
     def quality_error_tab(self, tools, context):
-        """Error distribution settings tab"""
+        """
+        Error distribution settings tab.
+        
+        Provides controls for error smoothing and reduction during mesh generation.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         mesh_quality = cs.mesh_quality
         
@@ -1161,13 +1398,22 @@ class snappyhexmesh_menu:
         row.prop(mesh_quality, "errorReduction", text="")
         
     def quality_preview_tab(self, tools, context):
-        """Preview tab for mesh quality settings"""
+        """
+        Preview tab for mesh quality settings.
+        
+        Displays a formatted preview of the OpenFOAM dictionary entries that will be generated
+        for the mesh quality controls.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         box = tools.box()
         box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         
-        # Use dictionary writer to generate preview
+        # Generate preview using dictionary writer
         lines = generate_quality_subdictionary(cs)
         lines = format_lines_for_preview(lines)
         
@@ -1178,7 +1424,16 @@ class snappyhexmesh_menu:
             col.label(text=line)
 
     def dictionary_tab(self, tools, context):
-        """Dictionary generation interface with a single button to generate and save the dictionary"""
+        """
+        Dictionary generation interface.
+        
+        Provides controls for debug flags, write flags, and global mesh settings
+        along with the dictionary generation button.
+        
+        Args:
+            tools: Panel layout to add UI elements to
+            context: Blender context containing scene data
+        """
         cs = context.scene
         
         # Debug Flags Section
@@ -1209,7 +1464,6 @@ class snappyhexmesh_menu:
         write_box = tools.box()
         write_box.label(text="Write Flags", icon="EXPORT")
         
-        # Simplified flag props without dynamic tooltip calls
         row = write_box.row()
         row.prop(cs, "writeFlag_scalarLevels", text="Write cell level fields")
         
@@ -1232,15 +1486,24 @@ class snappyhexmesh_menu:
         help_text.label(text="Tolerance used for point merging. Relative to bounding box.")
         help_text.label(text="Lower values preserve more detail but may cause mesh issues.")
         
-        # Add a prominent generate button
+        # Generate button
         tools.separator()
         row = tools.row(align=True)
-        row.scale_y = 2.0  # Make button larger
+        row.scale_y = 2.0
         row.operator("vnt.generate_snappyhex_dict", text="Generate SnappyHexMesh Dictionary", icon="FILE_TICK")
 
 
 @persistent
 def clean_geometry_items(dummy):
+    """
+    Clean up geometry items that no longer exist in the scene.
+    
+    This callback function runs whenever the depsgraph is updated and ensures
+    that the geometry_items collection only contains valid Blender objects.
+    
+    Args:
+        dummy: Unused parameter required by the handler
+    """
     scene = bpy.context.scene
     items = scene.geometry_items
     for i in range(len(items) - 1, -1, -1):

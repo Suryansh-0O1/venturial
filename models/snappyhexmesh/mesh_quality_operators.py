@@ -1,12 +1,13 @@
 """
-Mesh Quality control for SnappyHexMesh
+Mesh Quality Control for SnappyHexMesh
 
-This module defines the property groups and operators for the mesh quality settings
-in SnappyHexMesh. It includes:
-- Standard mesh quality constraints
-- Advanced mesh quality settings
-- Relaxed mesh quality parameters (used later in the meshing process)
-- File selection operator for external mesh quality dictionaries
+This module provides property groups and operators for configuring mesh quality settings
+in SnappyHexMesh. It implements:
+
+- Standard mesh quality constraints with industry-standard defaults
+- Advanced mesh quality parameters for fine-tuning
+- Relaxed mesh quality settings for iterative refinement processes
+- File selection capability for external mesh quality dictionaries
 """
 
 import bpy
@@ -17,8 +18,14 @@ from bpy.props import (
 )
 from bpy_extras.io_utils import ImportHelper
 
+
 class MeshQualityProperties(PropertyGroup):
-    """Standard mesh quality settings"""
+    """
+    Standard mesh quality settings for SnappyHexMesh.
+    
+    This property group defines all mesh quality parameters that can be adjusted
+    to control the mesh generation process, including standard and advanced constraints.
+    """
     
     # External dictionary includes
     includeMeshQualityDict: BoolProperty(
@@ -160,8 +167,15 @@ class MeshQualityProperties(PropertyGroup):
         max=1.0
     )
 
+
 class RelaxedMeshQualityProperties(PropertyGroup):
-    """Relaxed mesh quality settings for cells exceeding nRelaxedIter iterations"""
+    """
+    Relaxed mesh quality settings for SnappyHexMesh.
+    
+    These settings are applied to cells exceeding nRelaxedIter iterations in the meshing process.
+    Relaxed parameters allow the mesh generator to succeed when standard constraints
+    would be too restrictive, particularly in complex geometry regions.
+    """
     
     # Relaxation factor for quick setup
     relaxation_factor: FloatProperty(
@@ -172,7 +186,7 @@ class RelaxedMeshQualityProperties(PropertyGroup):
         max=2.0
     )
     
-    # Standard constraints - use consistent prefix 'use_' for all toggle properties
+    # Standard constraints with consistent use_* prefix for all toggle properties
     use_maxNonOrtho: BoolProperty(
         name="Max Non-Orthogonality",
         description="Enable relaxed non-orthogonality constraint",
@@ -367,8 +381,14 @@ class RelaxedMeshQualityProperties(PropertyGroup):
         max=1.0
     )
 
+
 class VNT_OT_select_mesh_quality_dict(Operator, ImportHelper):
-    """Select mesh quality dictionary file"""
+    """
+    File selector operator for mesh quality dictionary files.
+    
+    Allows users to browse the filesystem and select an external mesh quality
+    dictionary file for inclusion in the snappyHexMeshDict.
+    """
     bl_idname = "vnt.select_mesh_quality_dict"
     bl_label = "Select Mesh Quality Dictionary File"
     
@@ -379,18 +399,36 @@ class VNT_OT_select_mesh_quality_dict(Operator, ImportHelper):
     )
     
     def execute(self, context):
+        """Store the selected file path in the mesh quality settings."""
         if self.filepath:
-            # Store the selected path
             context.scene.mesh_quality.meshQualityDictPath = self.filepath
         return {'FINISHED'}
 
+
 class VNT_OT_copy_relaxed_settings(Operator):
-    """Copy standard mesh quality settings to relaxed settings with relaxation factor applied"""
+    """
+    Copy standard mesh quality settings to relaxed settings.
+    
+    This operator applies the relaxation factor to the standard mesh quality settings
+    and populates the relaxed settings fields. It automatically enables constraints
+    that differ significantly from the standard values.
+    """
     bl_idname = "vnt.copy_relaxed_settings"
     bl_label = "Copy From Standard"
     bl_description = "Copy standard mesh quality settings to relaxed settings with relaxation applied"
     
     def execute(self, context):
+        """
+        Copy standard settings to relaxed settings with relaxation factor applied.
+        
+        This method:
+        1. Gets the mesh quality settings and relaxation factor
+        2. Applies the factor to each setting (multiply for 'max' values, divide for 'min' values)
+        3. Enables constraints where the relaxed value differs significantly from standard
+        
+        Returns:
+            dict: Operator result
+        """
         mesh_quality = context.scene.mesh_quality
         relaxed = context.scene.relaxed_mesh_quality
         factor = relaxed.relaxation_factor

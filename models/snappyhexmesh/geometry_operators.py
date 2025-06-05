@@ -355,25 +355,46 @@ def geometry_index_update(self, context):
 
 @persistent
 def clean_geometry_items(dummy):
+    """Remove geometry items from scene collection that no longer have corresponding objects.
+    
+    This function runs as a post-update handler to ensure the UI list stays synchronized
+    with actual objects in the scene.
+    
+    Args:
+        dummy: Unused parameter required by the bpy.app.handlers system
+    """
     scene = bpy.context.scene
     items = scene.geometry_items
     for i in range(len(items) - 1, -1, -1):
         if not bpy.data.objects.get(items[i].name):
             items.remove(i)
 
-# This function should be called from the scene post handler
 @persistent
 def initialize_geometry_visibility(dummy):
-    """Initialize visibility of geometry objects after file load"""
+    """Initialize visibility of geometry objects after file load.
+    
+    Ensures that the correct geometry object is visible based on the UI selection
+    when a file is loaded.
+    
+    Args:
+        dummy: Unused parameter required by the bpy.app.handlers system
+    """
     if not hasattr(bpy.context.scene, "geometry_items"):
         return
     update_geometry_visibility(bpy.context.scene, bpy.context)
 
 def register():
+    """Register all classes and handlers related to geometry operations.
+    
+    This function registers property groups, UI lists, and adds the necessary
+    handlers to maintain geometry item visibility and synchronization.
+    """
     bpy.utils.register_class(GeometryItem)
     bpy.utils.register_class(GEOMETRY_UL_items)
     bpy.utils.register_class(StlRegionItem)
     bpy.utils.register_class(STL_UL_regions)
+    
+    # Add update handler to keep the geometry list and scene objects in sync
     if clean_geometry_items not in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.append(clean_geometry_items)
     
@@ -382,10 +403,17 @@ def register():
         bpy.app.handlers.load_post.append(initialize_geometry_visibility)
     
 def unregister():
+    """Unregister all classes and handlers related to geometry operations.
+    
+    This function removes all property groups, UI lists, and handlers that were
+    added during registration.
+    """
     bpy.utils.unregister_class(GEOMETRY_UL_items)
     bpy.utils.unregister_class(GeometryItem)
     bpy.utils.unregister_class(STL_UL_regions)
     bpy.utils.unregister_class(StlRegionItem)
+    
+    # Remove handlers
     if clean_geometry_items in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.remove(clean_geometry_items)
     

@@ -1,12 +1,25 @@
+"""
+Snap controls module for snappyHexMesh functionality.
+
+This module provides classes for defining snappyHexMesh snap controls properties
+and operators to manipulate them within the Blender interface.
+"""
+
 import bpy
 from bpy.types import Operator, PropertyGroup
 from bpy.props import (StringProperty, FloatProperty, IntProperty, 
                        BoolProperty, EnumProperty, CollectionProperty, 
                        PointerProperty, FloatVectorProperty)
 
-# Property group to store snap controls settings
+
 class SnapControlsProperties(PropertyGroup):
-    """Properties for snappyHexMesh snap controls"""
+    """
+    Properties for snappyHexMesh snap controls.
+    
+    This property group stores all settings related to the snapping phase
+    of snappyHexMesh, including basic snapping parameters and feature
+    snapping options.
+    """
     
     # Base snap settings
     nSmoothPatch: IntProperty(
@@ -69,9 +82,14 @@ class SnapControlsProperties(PropertyGroup):
         default=False
     )
 
-# Select/unselect operator for snap controls
+
 class VNT_OT_select_unselect_allsnap(Operator):
-    """Select/Unselect all snap features"""
+    """
+    Operator to toggle selection of all snap features.
+    
+    This operator provides a convenient way to enable or disable
+    feature snapping in the snappyHexMesh setup.
+    """
     bl_idname = "vnt.select_unselect_allsnap"
     bl_label = "Select/Unselect all snap features"
     bl_description = "Select/Unselect all snap features from the list"
@@ -80,19 +98,35 @@ class VNT_OT_select_unselect_allsnap(Operator):
     select_all: BoolProperty(
         default=False,
         name="Select all Items of List",
-        options={'SKIP_SAVE'})
+        options={'SKIP_SAVE'}
+    )
         
     @classmethod
     def poll(cls, context):
+        """
+        Check if the operator can be executed.
+        
+        Args:
+            context: Blender context
+            
+        Returns:
+            bool: Always True for this operator
+        """
         return True
 
     def execute(self, context):
+        """
+        Execute the operator to select or unselect all snap features.
+        
+        Args:
+            context: Blender context
+            
+        Returns:
+            dict: Operator result
+        """
         cs = context.scene
         
         # Enable or disable feature snapping based on selection
-        if self.select_all:
-            cs.useFeatureSnap = True
-        else:
-            cs.useFeatureSnap = False
+        cs.useFeatureSnap = self.select_all
               
         return{'FINISHED'}
