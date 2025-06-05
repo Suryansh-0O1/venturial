@@ -2,11 +2,9 @@ import bpy
 import os
 from bpy.app.handlers import persistent
 
-# Core operator imports
 from venturial.models.snappyhexmesh.geometry_operators import VNT_OT_create_new_geometry, VNT_OT_delete_geometry
 from venturial.models.snappyhexmesh.file_operators import VNT_OT_export_stl_geometry
 from venturial.models.snappyhexmesh.dictionary_operators import VNT_OT_generate_snappyhex_dict
-# Import the new dictionary writer module
 from venturial.models.snappyhexmesh.dictionary_writers import (
     generate_geometry_subdictionary,
     generate_castellated_subdictionary,
@@ -85,6 +83,25 @@ class snappyhexmesh_menu:
         row = tools.row(align=True)
         row.label(text="Name of STL File")
         row.prop(cs, "stl_file_name", text="")
+        
+        # STL Regions section - only show if STL is imported
+        if cs.stl_file_name:
+            regions_box = tools.box()
+            regions_header = regions_box.row()
+            regions_header.label(text="STL Regions", icon="OUTLINER_OB_SURFACE")
+            # Removed the duplicate add button from header
+            
+            row = regions_box.row()
+            row.template_list("STL_UL_regions", "", cs, "stl_regions", 
+                            cs, "stl_regions_index", rows=3)
+            col_buttons = row.column(align=True)
+            col_buttons.operator("vnt.add_stl_region", text="", icon="ADD")
+            col_buttons.operator("vnt.remove_stl_region", text="", icon="REMOVE")
+            
+            # Show help text if no regions
+            if len(cs.stl_regions) == 0:
+                regions_box.label(text="Add regions to map STL surface regions to custom names", icon="INFO")
+                regions_box.label(text="These regions can be used for specific refinements later")
         
         # Geometry management
         row = tools.row(align=True)
@@ -1135,7 +1152,7 @@ class snappyhexmesh_menu:
         row = grid.row(align=True)
         row.label(text="Error Reduction:")
         row.prop(mesh_quality, "errorReduction", text="")
-    
+        
     def quality_preview_tab(self, tools, context):
         """Preview tab for mesh quality settings"""
         cs = context.scene
@@ -1143,7 +1160,6 @@ class snappyhexmesh_menu:
         box = tools.box()
         box.label(text="Generated OpenFOAM Syntax Preview", icon="TEXT")
         
-        # Use dictionary writer to generate preview
         lines = generate_quality_subdictionary(cs)
         lines = format_lines_for_preview(lines)
         
@@ -1155,9 +1171,61 @@ class snappyhexmesh_menu:
 
     def dictionary_tab(self, tools, context):
         """Dictionary generation interface with a single button to generate and save the dictionary"""
-        # Add a prominent generate button
+        cs = context.scene
+        
+        # Debug Flags Section
+        debug_box = tools.box()
+        debug_box.label(text="Debug Flags", icon="VIEWZOOM")
+        
+        debug_box.prop(cs, "use_debug_flags", text="Enable Debug Output")
+        
+        if cs.use_debug_flags:
+            flags_col = debug_box.column(align=True)
+            
+            row = flags_col.row()
+            row.prop(cs, "debugFlag_mesh", text="Write intermediate meshes")
+            
+            row = flags_col.row()
+            row.prop(cs, "debugFlag_intersections", text="Write mesh intersections (.obj)")
+            
+            row = flags_col.row()
+            row.prop(cs, "debugFlag_featureSeeds", text="Write feature edge refinement info")
+            
+            row = flags_col.row()
+            row.prop(cs, "debugFlag_attraction", text="Write attraction (.obj)")
+            
+            row = flags_col.row()
+            row.prop(cs, "debugFlag_layerInfo", text="Write layer information")
+        
+        # Write Flags Section
+        write_box = tools.box()
+        write_box.label(text="Write Flags", icon="EXPORT")
+        
+        row = write_box.row()
+        row.prop(cs, "writeFlag_scalarLevels", text="Write cell level fields")
+        
+        row = write_box.row()
+        row.prop(cs, "writeFlag_layerSets", text="Write layer cell/face sets")
+        
+        row = write_box.row()
+        row.prop(cs, "writeFlag_layerFields", text="Write layer coverage fields")
+        
+        # Merge Tolerance Section
+        merge_box = tools.box()
+        merge_box.label(text="Global Mesh Settings", icon="AUTOMERGE_ON")
+        
+        row = merge_box.row(align=True)
+        row.label(text="Merge Tolerance:")
+        row.prop(cs, "mergeTolerance", text="")
+        
+        help_text = merge_box.column()
+        help_text.scale_y = 0.85
+        help_text.label(text="Tolerance used for point merging. Relative to bounding box.")
+        help_text.label(text="Lower values preserve more detail but may cause mesh issues.")
+        
+        tools.separator()
         row = tools.row(align=True)
-        row.scale_y = 2.0  # Make button larger
+        row.scale_y = 1.5
         row.operator("vnt.generate_snappyhex_dict", text="Generate SnappyHexMesh Dictionary", icon="FILE_TICK")
 
 

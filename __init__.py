@@ -137,7 +137,16 @@ from venturial.models.snappyhexmesh.mesh_quality_operators import (
     VNT_OT_copy_relaxed_settings
 )
 
-from venturial.models.snappyhexmesh.geometry_operators import geometry_index_update
+from venturial.models.snappyhexmesh.geometry_operators import (
+    GeometryItem, 
+    GEOMETRY_UL_items, 
+    geometry_index_update, 
+    StlRegionItem,
+    STL_UL_regions,
+    VNT_OT_add_stl_region,
+    VNT_OT_remove_stl_region
+)
+
 from venturial.models.snappyhexmesh.tooltip_updater import register as register_tooltips
 
 classes = (
@@ -283,6 +292,10 @@ classes = (
     VNT_OT_select_mesh_quality_dict,
     VNT_OT_copy_relaxed_settings,
     VNT_OT_generate_snappyhex_dict,
+    StlRegionItem,
+    STL_UL_regions,
+    VNT_OT_add_stl_region,
+    VNT_OT_remove_stl_region,
 )
 
 def register():
@@ -503,6 +516,9 @@ def register():
     
     bpy.types.Scene.stl_file = StringProperty(name="STL File", default="")
     bpy.types.Scene.stl_file_name = StringProperty(name="STL File Name", default="")
+    # Add STL region collection and index
+    bpy.types.Scene.stl_regions = CollectionProperty(type=StlRegionItem)
+    bpy.types.Scene.stl_regions_index = IntProperty(default=0)
     bpy.types.Scene.search_tuts = StringProperty(default="Search Tutorials")
     bpy.types.Scene.search_recents = StringProperty(default="Search Recents")
     bpy.types.Scene.edit_dict_name = BoolProperty(default=True)
@@ -1238,6 +1254,72 @@ def register():
         default='STANDARD'
     )
     
+    # Add mergeTolerance property if it doesn't exist
+    bpy.types.Scene.mergeTolerance = FloatProperty(
+        name="Merge Tolerance",
+        description="Merge tolerance for the final mesh. Relative to the bounding box.",
+        default=1e-6,
+        min=1e-10,
+        max=0.1,
+        precision=10
+    )
+    
+    # Debug flags for dictionary
+    bpy.types.Scene.use_debug_flags = BoolProperty(
+        name="Enable Debug Output",
+        description="Enable debug output for troubleshooting mesh generation",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_mesh = BoolProperty(
+        name="Mesh",
+        description="Write intermediate meshes during the meshing process",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_intersections = BoolProperty(
+        name="Intersections",
+        description="Write current mesh intersections as .obj files",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_featureSeeds = BoolProperty(
+        name="Feature Seeds",
+        description="Write information about explicit feature edge refinement",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_attraction = BoolProperty(
+        name="Attraction",
+        description="Write attraction as .obj files",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_layerInfo = BoolProperty(
+        name="Layer Info",
+        description="Write information about layers",
+        default=False
+    )
+    
+    # Write flags for dictionary
+    bpy.types.Scene.writeFlag_scalarLevels = BoolProperty(
+        name="Scalar Levels",
+        description="Write volScalarField with cellLevel for postprocessing",
+        default=True
+    )
+    
+    bpy.types.Scene.writeFlag_layerSets = BoolProperty(
+        name="Layer Sets",
+        description="Write cellSets and faceSets of faces in layer",
+        default=False
+    )
+    
+    bpy.types.Scene.writeFlag_layerFields = BoolProperty(
+        name="Layer Fields",
+        description="Write volScalarField for layer coverage",
+        default=False
+    )
+    
     # Update tooltips after all properties are registered
     register_tooltips()
     
@@ -1281,7 +1363,9 @@ def unregister():
         "ecustom", "ecustom_index", "vert_index", "cnt", "mode", "bdclist", "face_name",
         "facedes", "acustom", "acustom_index", "pcustom", "pcustom_index", "scustom",
         "scustom_index", "bscustom", "bscustom_index", "ipcnt", "edgelist", "face_sel_mode",
-        "geometry_items", "geometry_items_index", "castellatedMesh", "snap", "addLayers",
+        "geometry_items", "geometry_items_index", 
+        "stl_regions", "stl_regions_index",
+        "castellatedMesh", "snap", "addLayers",
         "maxLocalCells", "maxGlobalCells", "minRefinementCells", "maxLoadUnbalance",
         "nCellsBetweenLevels", "resolveFeatureAngle", "planarAngle",
         "locationInMeshX", "locationInMeshY", "locationInMeshZ",
@@ -1303,6 +1387,9 @@ def unregister():
         "layer_strategy", "detectExtrusionIsland", "show_advanced_quality",
         "castellated_tab", "snap_tab", "layer_tab", "quality_tab",
         "geometry_tab",  # Add this line
+        "use_debug_flags", "debugFlag_mesh", "debugFlag_intersections",
+        "debugFlag_featureSeeds", "debugFlag_attraction", "debugFlag_layerInfo",
+        "writeFlag_scalarLevels", "writeFlag_layerSets", "writeFlag_layerFields",
     ]
     
     for prop in property_names:

@@ -118,5 +118,5 @@ DICTIONARY_TOOLTIPS = {
     "writeFlag_scalarLevels": "Write cellLevel field for visualization of refinement levels.",
     "writeFlag_layerSets": "Write cellSets, faceSets of layers for visualization.",
     "writeFlag_layerFields": "Write layer coverage as fields for visualization.",
-    "mergeTolerance": "Fraction of overall bounding box for point merging. Controls tolerance for vertex merging."
+    "mergeTolerance": "Fraction of overall bounding box for point merging. Global parameter controlling tolerance for vertex merging during snapping phase."
 }

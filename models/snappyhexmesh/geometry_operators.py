@@ -3,7 +3,7 @@ from bpy.types import Operator, PropertyGroup, UIList
 from bpy.props import (
     StringProperty, EnumProperty,
     FloatProperty, FloatVectorProperty,
-    PointerProperty
+    PointerProperty, BoolProperty
 )
 from bpy.app.handlers import persistent
 
@@ -259,6 +259,76 @@ class VNT_OT_delete_geometry(Operator):
         self.report({'INFO'}, f"Deleted geometry: {geom_name}")
         return {'FINISHED'}
 
+class StlRegionItem(PropertyGroup):
+    """STL Region mapping properties"""
+    original_name: StringProperty(
+        name="Original Name",
+        description="Original region name in the STL file",
+        default=""
+    )
+    
+    custom_name: StringProperty(
+        name="Custom Name",
+        description="User-defined name for this region (used in OpenFOAM)",
+        default=""
+    )
+    
+    enabled: BoolProperty(
+        name="Enabled",
+        description="Include this region in mesh refinement",
+        default=True
+    )
+
+class STL_UL_regions(UIList):
+    """UI list for displaying STL regions"""
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            split = layout.split(factor=0.45)
+            split.prop(item, "original_name", text="", emboss=False, icon='SURFACE_DATA')
+            split.prop(item, "custom_name", text="", emboss=False)
+            layout.prop(item, "enabled", text="")
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text=item.original_name)
+
+class VNT_OT_add_stl_region(Operator):
+    """Add a new STL region mapping"""
+    bl_idname = "vnt.add_stl_region"
+    bl_label = "Add STL Region"
+    
+    region_name: StringProperty(
+        name="Region Name",
+        description="Name of the region in the STL file",
+        default=""
+    )
+    
+    def execute(self, context):
+        region = context.scene.stl_regions.add()
+        region.original_name = self.region_name
+        region.custom_name = self.region_name  # Default to same name
+        context.scene.stl_regions_index = len(context.scene.stl_regions) - 1
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+class VNT_OT_remove_stl_region(Operator):
+    """Remove the selected STL region mapping"""
+    bl_idname = "vnt.remove_stl_region"
+    bl_label = "Remove STL Region"
+    
+    @classmethod
+    def poll(cls, context):
+        return context.scene.stl_regions and context.scene.stl_regions_index >= 0
+    
+    def execute(self, context):
+        scene = context.scene
+        if len(scene.stl_regions) > 0 and scene.stl_regions_index >= 0:
+            scene.stl_regions.remove(scene.stl_regions_index)
+            if scene.stl_regions_index > 0 and scene.stl_regions_index >= len(scene.stl_regions):
+                scene.stl_regions_index -= 1
+        return {'FINISHED'}
+
 def update_geometry_visibility(scene, context):
     """Update geometry visibility when selection changes in UI"""
     collection = bpy.data.collections.get("User Defined Geometry")
@@ -302,6 +372,8 @@ def initialize_geometry_visibility(dummy):
 def register():
     bpy.utils.register_class(GeometryItem)
     bpy.utils.register_class(GEOMETRY_UL_items)
+    bpy.utils.register_class(StlRegionItem)
+    bpy.utils.register_class(STL_UL_regions)
     if clean_geometry_items not in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.append(clean_geometry_items)
     
@@ -312,6 +384,8 @@ def register():
 def unregister():
     bpy.utils.unregister_class(GEOMETRY_UL_items)
     bpy.utils.unregister_class(GeometryItem)
+    bpy.utils.unregister_class(STL_UL_regions)
+    bpy.utils.unregister_class(StlRegionItem)
     if clean_geometry_items in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.remove(clean_geometry_items)
     

@@ -22,49 +22,68 @@ def generate_geometry_subdictionary(scene):
     # Always show imported STL if present
     if scene.stl_file_name:
         stl_name = os.path.splitext(scene.stl_file_name)[0]
-        lines.append(f"    {stl_name}")
+        lines.append(f"    {stl_name}.stl")
         lines.append("    {")
         lines.append("        type triSurfaceMesh;")
+        
+        # Add name parameter if file name is available
+        if scene.stl_file_name:
+            base_name = os.path.splitext(os.path.basename(scene.stl_file_name))[0]
+            lines.append(f"        name {base_name};")
+        
+        # Add regions section if we have STL regions defined
+        if len(scene.stl_regions) > 0:
+            lines.append("")
+            lines.append("        regions")
+            lines.append("        {")
+            
+            # Add each enabled region
+            for region in scene.stl_regions:
+                if region.enabled:
+                    lines.append(f"            {region.original_name}")
+                    lines.append("            {")
+                    # Use custom name if provided, otherwise use original name
+                    name_to_use = region.custom_name if region.custom_name else region.original_name
+                    lines.append(f"                name {name_to_use};")
+                    lines.append("            }")
+            
+            lines.append("        }")
+        
         lines.append("    }")
 
     # Process all primitive geometry items
     for item in scene.geometry_items:
-        obj = bpy.data.objects.get(item.name)
-        if not obj or obj.type != 'MESH':
-            continue
-            
-        if "cube" in obj.name.lower() or "box" in obj.name.lower():
-            # Handle box geometry
-            bounds = obj.bound_box
-            min_x = min(p[0] for p in bounds) + obj.location.x - obj.scale.x
-            min_y = min(p[1] for p in bounds) + obj.location.y - obj.scale.y
-            min_z = min(p[2] for p in bounds) + obj.location.z - obj.scale.z
-            max_x = max(p[0] for p in bounds) + obj.location.x + obj.scale.x
-            max_y = max(p[1] for p in bounds) + obj.location.y + obj.scale.y
-            max_z = max(p[2] for p in bounds) + obj.location.z + obj.scale.z
-            
-            lines.append(f"    {obj.name}")
+        # Use stored properties for primitives
+        if item.geometry_type == "searchableBox":
+            min_x, min_y, min_z = item.box_min
+            max_x, max_y, max_z = item.box_max
+            lines.append(f"    {item.name}")
             lines.append("    {")
             lines.append("        type searchableBox;")
             lines.append(f"        min ({min_x} {min_y} {min_z});")
             lines.append(f"        max ({max_x} {max_y} {max_z});")
             lines.append("    }")
-            
-        elif "sphere" in obj.name.lower():
-            # Handle sphere geometry
-            radius = obj.scale.x  # Assuming uniform scale
-            lines.append(f"    {obj.name}")
+            continue
+
+        if item.geometry_type == "searchableSphere":
+            cx, cy, cz = item.sphere_center
+            r = item.sphere_radius
+            lines.append(f"    {item.name}")
             lines.append("    {")
             lines.append("        type searchableSphere;")
-            lines.append(f"        centre ({obj.location.x} {obj.location.y} {obj.location.z});")
-            lines.append(f"        radius {radius};")
+            lines.append(f"        centre ({cx} {cy} {cz});")
+            lines.append(f"        radius {r};")
             lines.append("    }")
-        else:
-            # Generic mesh object
-            lines.append(f"    {obj.name}")
-            lines.append("    {")
-            lines.append("        type triSurfaceMesh;")
-            lines.append("    }")
+            continue
+
+        # Fallback: generic mesh via its object name
+        obj = bpy.data.objects.get(item.name)
+        if not obj or obj.type != 'MESH':
+            continue
+        lines.append(f"    {obj.name}")
+        lines.append("    {")
+        lines.append("        type triSurfaceMesh;")
+        lines.append("    }")
     
     lines.append("};")
     return lines
@@ -298,10 +317,19 @@ def generate_quality_subdictionary(scene):
     lines.append("meshQualityControls")
     lines.append("{")
 
-    if scene.mesh_quality.includeMeshQualityDict:
-        lines.append(f'    #include "{os.path.basename(scene.mesh_quality.meshQualityDictPath)}";')
+    mesh_quality = scene.mesh_quality
+    
+    # When including external dictionary
+    if mesh_quality.includeMeshQualityDict:
+        lines.append(f'    #include "{os.path.basename(mesh_quality.meshQualityDictPath)}";')
+        
+        # Always include error control parameters
+        lines.append("")
+        lines.append("    // Error control")
+        lines.append(f"    nSmoothScale {mesh_quality.nSmoothScale};")
+        lines.append(f"    errorReduction {mesh_quality.errorReduction};")
     else:
-        mesh_quality = scene.mesh_quality
+        # Standard quality constraints
         lines.append(f"    maxNonOrtho {mesh_quality.maxNonOrtho};")
         lines.append(f"    maxBoundarySkewness {mesh_quality.maxBoundarySkewness};")
         lines.append(f"    maxInternalSkewness {mesh_quality.maxInternalSkewness};")
@@ -366,19 +394,57 @@ def generate_quality_subdictionary(scene):
 def generate_dictionary_controls_subdictionary(scene):
     """Generate the writeFlags and other dictionary control settings"""
     lines = []
-    lines.append("// Write flags")
-    lines.append("writeFlags")
-    lines.append("{")
-    if hasattr(scene, 'writeFlag_scalarLevels'):
-        lines.append(f"    scalarLevels {str(scene.writeFlag_scalarLevels).lower()};")
-    if hasattr(scene, 'writeFlag_layerSets'):
-        lines.append(f"    layerSets {str(scene.writeFlag_layerSets).lower()};")
-    if hasattr(scene, 'writeFlag_layerFields'):
-        lines.append(f"    layerFields {str(scene.writeFlag_layerFields).lower()};")
-    lines.append("};")
+    
+    # Add debug flags if enabled
+    if hasattr(scene, 'use_debug_flags') and scene.use_debug_flags:
+        debug_flags = []
+        if hasattr(scene, 'debugFlag_mesh') and scene.debugFlag_mesh:
+            debug_flags.append("    mesh            // write intermediate meshes")
+        if hasattr(scene, 'debugFlag_intersections') and scene.debugFlag_intersections:
+            debug_flags.append("    intersections   // write current mesh intersections as .obj files")
+        if hasattr(scene, 'debugFlag_featureSeeds') and scene.debugFlag_featureSeeds:
+            debug_flags.append("    featureSeeds    // write information about explicit feature edge refinement")
+        if hasattr(scene, 'debugFlag_attraction') and scene.debugFlag_attraction:
+            debug_flags.append("    attraction      // write attraction as .obj files")
+        if hasattr(scene, 'debugFlag_layerInfo') and scene.debugFlag_layerInfo:
+            debug_flags.append("    layerInfo       // write information about layers")
+        
+        if debug_flags:
+            lines.append("// Debug flags")
+            lines.append("debugFlags")
+            lines.append("(")
+            lines.extend(debug_flags)
+            lines.append(");")
+            lines.append("")
+    
+    # Write flags
+    write_flags = []
+    if hasattr(scene, 'writeFlag_scalarLevels') and scene.writeFlag_scalarLevels:
+        write_flags.append("    scalarLevels    // write volScalarField with cellLevel for postprocessing")
+    if hasattr(scene, 'writeFlag_layerSets') and scene.writeFlag_layerSets:
+        write_flags.append("    layerSets       // write cellSets, faceSets of faces in layer")
+    if hasattr(scene, 'writeFlag_layerFields') and scene.writeFlag_layerFields:
+        write_flags.append("    layerFields     // write volScalarField for layer coverage")
+    
+    if write_flags:
+        lines.append("// Write flags")
+        lines.append("writeFlags")
+        lines.append("(")
+        lines.extend(write_flags)
+        lines.append(");")
+    else:
+        # Empty write flags section
+        lines.append("// Write flags")
+        lines.append("writeFlags")
+        lines.append("{")
+        lines.append("};")
+    
     lines.append("")
+    
+    # Always include merge tolerance
     if hasattr(scene, 'mergeTolerance'):
         lines.append(f"mergeTolerance {scene.mergeTolerance};")
+    
     return lines
 
 def format_lines_for_preview(lines):

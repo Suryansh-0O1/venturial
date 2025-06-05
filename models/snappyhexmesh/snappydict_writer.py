@@ -11,7 +11,6 @@ from .dictionary_writers import (
 
 def write_header():
     """Generate the header for the snappyHexMesh dictionary"""
-    # Keep the standard OpenFOAM header as is
     header = """/*--------------------------------*- C++ -*----------------------------------*\\
 | =========                 |                                                 |
 | \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
