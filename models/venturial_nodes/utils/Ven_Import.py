@@ -88,14 +88,14 @@ def create_value_node(node_tree, value, name, location, parent_frame=None):
     if isinstance(value, (Int_P, Flt_P, Enm_P, Vector_P, Dim_Set_P)):
         if isinstance(value, Int_P):
             node = create_blender_node(node_tree, 'N_Int_P', f"{name}_value", (x_pos, y_pos), parent_frame)
-            node.outputs['Value'].default_value = value.give_val()
             node.minimum = value._Int_P__minimum
             node.maximum = value._Int_P__maximum
+            node.default = value.give_val()
         elif isinstance(value, Flt_P):
             node = create_blender_node(node_tree, 'N_Flt_P', f"{name}_value", (x_pos, y_pos), parent_frame)
-            node.outputs['Value'].default_value = value.give_val()
             node.minimum = value._Flt_P__minimum
             node.maximum = value._Flt_P__maximum
+            node.default = value.give_val()
         elif isinstance(value, Enm_P):
             node = create_blender_node(node_tree, 'N_Str_P', f"{name}_value", (x_pos, y_pos), parent_frame)
             # node.outputs['Value'].default_value = value.give_val()
@@ -369,18 +369,11 @@ class VENTURIAL_OT_import_file(Operator, ImportHelper):
 
         # Try to parse the file content
         try:
-            with open(self.filepath, 'r') as f:
-                content = f.read()
-            try:
-                pyvnt_node = OpenFoamParser().parse_file(content)
-                print(pyvnt_node)
-                show_tree(pyvnt_node)
-            except Exception as parse_error:
-                self.report({'ERROR'}, f"Failed to parse file: {str(parse_error)}\nAlso failed to read: {str(read_error)}")
-                return {'CANCELLED'}
-
-        except Exception as e:
-            self.report({'ERROR'}, f"Failed to read file: {str(e)}")
+            pyvnt_node = OpenFoamParser().parse_file(path=self.filepath)
+            print(pyvnt_node)
+            show_tree(pyvnt_node)
+        except Exception as parse_error:
+            self.report({'ERROR'}, f"Failed to parse file: {str(parse_error)}\nAlso failed to read: {str(read_error)}")
             return {'CANCELLED'}
         
         # Get or create the node tree

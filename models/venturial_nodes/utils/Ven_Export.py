@@ -1,7 +1,7 @@
 import bpy
 from bpy.types import Operator
 from bpy_extras.io_utils import ExportHelper
-from bpy.props import StringProperty
+from bpy.props import StringProperty ,EnumProperty
 from pyvnt import *
 from ..DataConvertore import DataConvertorNodeToPyVNT
 
@@ -185,20 +185,31 @@ class VENTURIAL_OT_inspect_active_tree_structured(Operator):
         return {'FINISHED'}
     
 class VENTURIAL_OT_export_file(Operator, ExportHelper):
-    """Export the current Venturial node tree to a file"""
+    """Export the current Venturial node tree to a file
+        Only select folder .
+        Name of file depends on Output Node.
+    """
     bl_idname = "venturial.export_file"
     bl_label = "Export Venturial Node Tree"
     bl_options = {'REGISTER'}
 
-    filename_ext = ".txt"
-
-    filepath: StringProperty(
-        name="File Path",
-        description="Path to save the exported file",
-        default="",
-        maxlen=1024,
-        subtype='FILE_PATH'
+    export_format: EnumProperty(
+        name="Export Format",
+        description="Choose the export file format",
+        items=[
+            ('TXT', "Text (.txt)", "Export as plain text"),
+            ('YAML', "YAML (.yaml)", "Export as YAML")
+        ],
+        default='TXT'
     )
+
+    def invoke(self, context, event):
+        if self.export_format == 'YAML':
+            self.filename_ext = "yaml"
+        else:
+            self.filename_ext = "txt"
+        return super().invoke(context, event)
+
     @classmethod
     def poll(cls, context):
         space = context.space_data
@@ -221,7 +232,8 @@ class VENTURIAL_OT_export_file(Operator, ExportHelper):
                 print(f"\nPyVNT Node Structure for {head_node.name}:")
                 show_tree(pyvnt_node)
                 print(self.filepath)
-                writeTo( pyvnt_node,path=self.filepath)
+                print(self.filename_ext)
+                writeTo( pyvnt_node,path=self.filepath,fileType=self.filename_ext)
                 self.report({'INFO'}, f"Successfully written node tree at {self.filepath}")
             else:
                 print("Failed to build PyVNT node structure")
