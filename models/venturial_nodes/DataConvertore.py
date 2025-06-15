@@ -95,11 +95,10 @@ class DataConvertorNodeToPyVNT:
         Returns:
             List_CP: A PyVNT list container with three Flt_P objects for x, y, z
         """
-        vector_list = List_CP(name, elems=[[
-            Flt_P("x", value[0], minimum=minimum, maximum=maximum),
-            Flt_P("y", value[1], minimum=minimum, maximum=maximum),
-            Flt_P("z", value[2], minimum=minimum, maximum=maximum)
-        ]])
+        vector_list = Vector_P("nacc",x=Int_P("v",default=29,minimum=0,maximum=34),
+                 y=Int_P("vsd",default=2,minimum=0,maximum=34),
+                 z=Int_P("df",default=2,minimum=0,maximum=34))
+        # print("VectNode Output  :  "+str(vector_list))
         return vector_list
     
     def convert_To_Str_P(self, name:str, value:str):
@@ -145,12 +144,14 @@ class DataConvertorNodeToPyVNT:
             MultiValue_List_CP: A PyVNT multi-value list container
         """
         listnode=List_CP(name)
+        list_elems=[]
         for i in num_values:
             if value_type == "FLOAT":
-                listnode.append_elem([Flt_P(f"Value_{i}",i.default_value,minimum=minimum,maximum=maximum)])
+                list_elems.append(Flt_P(f"Value_{i}",i.default_value,minimum=minimum,maximum=maximum))
             elif value_type == "INT":
                 minimum=int(minimum)
                 maximum=int(maximum)
-                listnode.append_elem([Int_P(f"Value_{i}",i.default_value,minimum=minimum,maximum=maximum)])
+                list_elems.append(Int_P(f"Value_{i}",i.default_value,minimum=minimum,maximum=maximum))
+        listnode.append_elem(list_elems)
         return listnode
 
