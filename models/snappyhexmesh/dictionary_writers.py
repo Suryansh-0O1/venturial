@@ -286,7 +286,7 @@ def generate_layer_subdictionary(scene):
         lines.append("    {")
         
         for patch in scene.layer_patches:
-            lines.append(f"        {patch.name}")
+            lines.append(f'        "{patch.name}"')
             lines.append("        {")
             lines.append(f"            nSurfaceLayers {patch.nSurfaceLayers};")
             
