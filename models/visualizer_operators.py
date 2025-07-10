@@ -46,7 +46,7 @@ class VNT_OT_vertex_data_control(Operator):
             text_pos = location_3d_to_region_2d(context.region, context.space_data.region_3d, j)
             
             blf.position(0, text_pos[0], text_pos[1], 0)
-            blf.size(0, cs.vert_text_size, cs.vert_text_size)
+            blf.size(0, cs.vert_text_size)
             
             blf.color(0, cs.vert_text_color[0], cs.vert_text_color[1], cs.vert_text_color[2], cs.vert_text_color[3])
             
