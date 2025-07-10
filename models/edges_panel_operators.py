@@ -231,7 +231,8 @@ class VNT_OT_new_vert(Operator):
     
     def first(self, context):
         cs = context.scene
-        print("Executing first")
+        alignment = cs.edge_alignment
+        print("Executing first with alignment:", alignment)
         try:
             bpy.ops.object.mode_set( mode = 'EDIT' )
             selectedEdges = []
@@ -251,32 +252,49 @@ class VNT_OT_new_vert(Operator):
             x = g @ selectedEdges[0].verts[0].co
             y = g @ selectedEdges[0].verts[1].co
 
-            # Calculate the center of the uppermost face of the cube
-            cube_center = context.active_object.location
-            face_center = (cube_center[0], cube_center[1], cube_center[2] + context.active_object.dimensions.z / 2)
-
-            # Calculate the radius (half the diagonal of the face)
-            face_diagonal = (context.active_object.dimensions.x ** 2 + context.active_object.dimensions.y ** 2) ** 0.5
-            radius = face_diagonal / 2
+            obj = context.active_object
+            cube_center = obj.location
+            dims = obj.dimensions
 
             # Calculate the midpoint of the edge
             midpoint = [(x[i] + y[i]) / 2 for i in range(3)]
 
-            # Calculate the direction vector from the face center to the midpoint
-            direction = [midpoint[i] - face_center[i] for i in range(3)]
-            direction[2] = 0  # Project onto the XY plane (ignore Z)
+            # Calculate face_center and projection based on alignment
+            face_center = list(cube_center)
+            direction = [0.0, 0.0, 0.0]
 
-            # Normalize the direction vector
-            length = (direction[0] ** 2 + direction[1] ** 2) ** 0.5
-            direction = [direction[i] / length for i in range(2)] + [0]
+            if alignment == "Z":
+                face_center[2] += dims.z / 2
+                direction = [midpoint[0] - face_center[0], midpoint[1] - face_center[1], 0]
+            elif alignment == "-Z":
+                face_center[2] -= dims.z / 2
+                direction = [midpoint[0] - face_center[0], midpoint[1] - face_center[1], 0]
+            elif alignment == "X":
+                face_center[0] += dims.x / 2
+                direction = [0, midpoint[1] - face_center[1], midpoint[2] - face_center[2]]
+            elif alignment == "-X":
+                face_center[0] -= dims.x / 2
+                direction = [0, midpoint[1] - face_center[1], midpoint[2] - face_center[2]]
+            elif alignment == "Y":
+                face_center[1] += dims.y / 2
+                direction = [midpoint[0] - face_center[0], 0, midpoint[2] - face_center[2]]
+            elif alignment == "-Y":
+                face_center[1] -= dims.y / 2
+                direction = [midpoint[0] - face_center[0], 0, midpoint[2] - face_center[2]]
 
-            # Calculate the third vertex (coord) position
-            coord = [
-                face_center[0] + direction[0] * (radius),
-                face_center[1] + direction[1] * (radius),
-                (x[2] + y[2]) / 2  # Average Z value
-            ]
+            # Normalize direction
+            length = sum([d ** 2 for d in direction]) ** 0.5
+            if length == 0:
+                self.report({'ERROR'}, "Direction vector is zero-length")
+                return
+            direction = [d / length for d in direction]
 
+            # Calculate radius
+            face_diagonal = (dims.x ** 2 + dims.y ** 2) ** 0.5
+            radius = face_diagonal / 2
+
+            # Final vertex coordinate
+            coord = [face_center[i] + direction[i] * radius for i in range(3)]
         except Exception as e:
             print(f"Error in first: {e}")
             return

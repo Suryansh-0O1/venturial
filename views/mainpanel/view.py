@@ -247,6 +247,9 @@ class layout_controller:
         row1.prop(cs, "curve_type", text="Curve Type")
         draw_p(self, context)
 
+        alignrow = layout.row()
+        alignrow.prop(cs, "edge_alignment", text="Alignment")
+
         row2 = layout.row()
         row2.operator('vnt.new_edge')
         row2.operator('vnt.remove_edge')

@@ -406,6 +406,18 @@ def register():
         default="ARC",
     )
 
+    bpy.types.Scene.edge_alignment = EnumProperty(
+        items=[
+            ("X", "X Axis", "Align edge along X axis"),
+            ("-X", "-X Axis", "Align edge along -X axis"),
+            ("Y", "Y Axis", "Align edge along Y axis"),
+            ("-Y", "-Y Axis", "Align edge along -Y axis"),
+            ("Z", "Z Axis", "Align edge along Z axis"),
+            ("-Z", "-Z Axis", "Align edge along -Z axis"),
+        ],
+        default="X",
+    )
+
     bpy.types.Scene.cnt = IntProperty()
 
     bpy.types.Scene.mode = EnumProperty(
