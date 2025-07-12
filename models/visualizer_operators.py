@@ -331,7 +331,13 @@ class VNT_OT_boundary_data_control(Operator):
         for item in cs.fcustom:
             # {'name': '(7 3 1 5)', 'face_des': 'inlet', 'face_clr': <bpy id property array [4]>, 'face_type': 3}
             # print(f"compare -> {item['name']} vs {cs.fcustom_index}")
-            coords = [tuple(vertex_props[i]) for i in self.get_indices(item['name'])]
+            coords = []
+            for i in self.get_indices(item['name']):
+                if i in vertex_props:
+                    coords.append(tuple(vertex_props[i]))
+                else:
+                    # Handle missing vertex - either skip this face or get vertex from mesh data
+                    continue
             indices = [(0, 1, 2), (2, 3, 0)] if len(coords) == 4 else [(0, 1, 2)]
 
             clr = tuple(item['face_clr'])
