@@ -101,13 +101,13 @@ class VNT_OT_save_preferences(Operator):
         self.cs = bpy.context.scene
         self.pref_data = {key: getattr(self.cs.pref_pointer, key) for key in self.cs.pref_pointer.__annotations__.keys()}
     
-    def toggle(self):
-        self.cs.row_en = True
+    def toggle(self, context):
+        context.scene.row_en = True
     
     def __del__(self):
         """Wait for 0.1 seconds for save preferences dialog box to close and then toggle row_en
         to allow interaction with settings dialog box."""
-        bpy.app.timers.register(functools.partial(self.toggle), first_interval=0.1)
+        bpy.app.timers.register(functools.partial(self.toggle, bpy.context), first_interval=0.1)
         
     def draw(self, context):
         layout = self.layout
@@ -150,13 +150,13 @@ class VNT_OT_reset_preferences(Operator):
         self.cs = bpy.context.scene
         with open(self.default_pref_loc, 'r') as inp : self.default_prefs = json.load(inp)
         
-    def toggle(self):
-        self.cs.row_en = True
+    def toggle(self, context):
+        context.scene.row_en = True
         
     def __del__(self):
         """Wait for 0.1 seconds for reset preferences dialog box to close and then toggle row_en
         to allow interaction with settings dialog box."""
-        bpy.app.timers.register(functools.partial(self.toggle), first_interval=0.1)
+        bpy.app.timers.register(functools.partial(self.toggle, bpy.context), first_interval=0.1)
         
     def draw(self, context):
         layout = self.layout
@@ -480,9 +480,9 @@ class VNT_OT_close_venturial(Operator):
         
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width=410)
-    
-  
 
 
-    
-    
+
+
+
+

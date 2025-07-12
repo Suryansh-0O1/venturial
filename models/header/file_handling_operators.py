@@ -61,8 +61,8 @@ class new_case_prompt:
         row3 = layout.row()
         row3spt = row3.split(factor = 0.3)
         
-        r3c1 = row3spt.row()
-        r3c2 = row3spt.row() 
+        r3c1 = r3spt.row()
+        r3c2 = r3spt.row() 
         
         r3c1.label(text="Meshing Tool")
         r3c2.prop(cs, "prompt_meshing_tool", expand=True)
@@ -349,3 +349,37 @@ class VNT_OT_deactivate_mesh_file_item(Operator):
                         
             
         return{'FINISHED'}
+
+
+class VNT_OT_stl_browse(bpy.types.Operator):
+    bl_idname = "vnt.stl_browse"
+    bl_label = "Browse STL File"
+
+    filepath: StringProperty(subtype="FILE_PATH")
+    
+    def execute(self, context):
+        context.scene.stl_file = self.filepath
+        context.scene.stl_file_name = os.path.basename(self.filepath)
+        
+        # Set default custom name (without extension) if it's empty
+        if not context.scene.stl_custom_name:
+            context.scene.stl_custom_name = os.path.splitext(os.path.basename(self.filepath))[0]
+            
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+class VNT_OT_import_stl_geometry(bpy.types.Operator):
+    bl_idname = "vnt.import_stl_geometry"
+    bl_label = "Import STL Geometry"
+    
+    def execute(self, context):
+        filepath = context.scene.stl_file
+        if filepath:
+            bpy.ops.import_mesh.stl(filepath=filepath)
+            return {'FINISHED'}
+        else:
+            self.report({'ERROR'}, "No file selected")
+            return {'CANCELLED'}
