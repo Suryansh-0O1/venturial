@@ -217,7 +217,7 @@ class layout_controller:
         min_rows = 3
         row = layout.row()
 
-        split = layout.split(factor=0.2)
+        split = layout.split(factor=0.4)
         split.template_list("CUSTOM_UL_edges_Main","", cs, "ecustom", cs, "ecustom_index", rows=min_rows)
         
         if len(ec) > 0 and cs.ecustom_index != -1:
@@ -233,13 +233,18 @@ class layout_controller:
             )
         
         row1 = layout.row()
+        row1.prop(cs, "curve_type", text="Curve Type")
         draw_p(self, context)
-        row1.operator('vnt.new_edge')
-        row1.prop(cs, "curve_type")
-        row1.operator('vnt.remove_edge')
+
+        alignrow = layout.row()
+        alignrow.prop(cs, "edge_alignment", text="Alignment")
+
         row2 = layout.row()
-        row2.operator('vnt.new_vert')
-        row2.operator('vnt.remove_vert')
+        row2.operator('vnt.new_edge')
+        row2.operator('vnt.remove_edge')
+        row3 = layout.row()
+        row3.operator('vnt.new_vert')
+        row3.operator('vnt.remove_vert')
 
         if len(ec):
             layout.prop(ec[cs.ecustom_index], "color")

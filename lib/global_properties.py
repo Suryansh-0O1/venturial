@@ -75,6 +75,8 @@ class VNT_global_properties_collection(PropertyGroup):
     master_face : EnumProperty("Master Face", items=list_current_faces)
     slave_face : EnumProperty("Slave Face", items=list_current_faces)
     
+    object_name : StringProperty()
+
     b_name: StringProperty()
     setcellx: IntProperty()
     setcelly: IntProperty()

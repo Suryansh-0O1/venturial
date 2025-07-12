@@ -375,6 +375,24 @@ classes = (
     VNT_OT_add_stl_region,
     VNT_OT_remove_stl_region,
 )
+def load_post_handler():
+    """
+    Handler that resets the draw handlers for edges after a .blend file is loaded.
+    """
+    # Clear any existing draw handler references in our scene data.
+    edge_data = get_edge_draw_data()
+    edge_data["draw_handlers"].clear()
+    edge_data["verts"].clear()
+
+    # Re-run the drawing function for each edge.
+    scn = bpy.context.scene
+    for i in range(len(scn.ecustom)):
+        try:
+            # Assume draw_p is imported from edges_panel_operators
+            from .edges_panel_operators import draw_p
+            draw_p(None, bpy.context)
+        except Exception as e:
+            print(f"Error initializing draw handler for edge {i}: {e}")
 
 def register():
     print("--- Registering Venturial Nodes Module ---")
@@ -777,6 +795,18 @@ def register():
             ("BSPL", "BSpline", "BSpline type of edge"),
         ],
         default="ARC",
+    )
+
+    bpy.types.Scene.edge_alignment = EnumProperty(
+        items=[
+            ("X", "X Axis", "Align edge along X axis"),
+            ("-X", "-X Axis", "Align edge along -X axis"),
+            ("Y", "Y Axis", "Align edge along Y axis"),
+            ("-Y", "-Y Axis", "Align edge along -Y axis"),
+            ("Z", "Z Axis", "Align edge along Z axis"),
+            ("-Z", "-Z Axis", "Align edge along -Z axis"),
+        ],
+        default="X",
     )
 
     bpy.types.Scene.cnt = IntProperty()
@@ -1419,20 +1449,15 @@ def register():
 
     bpy.app.handlers.load_factory_startup_post.append(add_tutorials_to_scene)
     bpy.app.handlers.load_factory_startup_post.append(add_recents_to_scene)
+    get_edge_draw_data()
+    bpy.app.handlers.load_post.append(load_post_handler)
 
 def unregister():
 
-
-
-    # Unregister venturial_nodes first (reverse order of registration)
-    try:
-        venturial_nodes.unregister()
-        print("Venturial Nodes module unregistered successfully.")
-    except Exception as e:
-        print(f"Error unregistering Venturial Nodes module: {e}")
-
-
-
+    from bpy.app.handlers import load_post
+    if load_post_handler in load_post:
+        load_post.remove(load_post_handler)
+        
     for cls in reversed(classes):
         try:
             unregister_class(cls)
