@@ -59,7 +59,7 @@ class new_case_prompt:
         r2c2.scale_y = 0.56
 
         row3 = layout.row()
-        row3spt = row3.split(factor = 0.3)
+        r3spt = row3.split(factor = 0.3)
         
         r3c1 = r3spt.row()
         r3c2 = r3spt.row() 
