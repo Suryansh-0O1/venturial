@@ -548,7 +548,7 @@ def draw_edge_viewport(index):
     except Exception as e:
         return
     
-    shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+    shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
     # bgl.glLineWidth(curr_spline.size)
     col = (curr_spline.color[0], curr_spline.color[1], curr_spline.color[2], curr_spline.color[3])
 

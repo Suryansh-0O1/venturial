@@ -1449,7 +1449,6 @@ def register():
 
     bpy.app.handlers.load_factory_startup_post.append(add_tutorials_to_scene)
     bpy.app.handlers.load_factory_startup_post.append(add_recents_to_scene)
-    get_edge_draw_data()
     bpy.app.handlers.load_post.append(load_post_handler)
 
 def unregister():

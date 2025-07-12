@@ -46,7 +46,7 @@ class VNT_OT_vertex_data_control(Operator):
             text_pos = location_3d_to_region_2d(context.region, context.space_data.region_3d, j)
             
             blf.position(0, text_pos[0], text_pos[1], 0)
-            blf.size(0, cs.vert_text_size)
+            blf.size(0, cs.vert_text_size, cs.vert_text_size)
             
             blf.color(0, cs.vert_text_color[0], cs.vert_text_color[1], cs.vert_text_color[2], cs.vert_text_color[3])
             
@@ -119,7 +119,8 @@ class VNT_OT_edge_data_control(Operator):
             return True if context.active_object.type == "MESH" else False
         
     def draw_line_3d(self, color, start, end):
-        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        bgl.glLineWidth(5)
+        self.shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
         self.batch = batch_for_shader(self.shader, 'LINES', {"pos": [start, end]})
         self.shader.bind()
         self.shader.uniform_float("color", color)
@@ -159,15 +160,16 @@ class VNT_OT_edge_data_control(Operator):
         return edge_prop # returns the midpoints of selected edges.
     
     def draw_edge_properties(self, operator, context, geo):
-        gpu.state.blend_set('ALPHA')
-        gpu.state.depth_test_set('LESS_EQUAL')
+        bgl.glEnable(bgl.GL_BLEND)
+        bgl.glEnable(bgl.GL_LINE_SMOOTH)
+        bgl.glEnable(bgl.GL_DEPTH_TEST)
 
         for point in self.get_edge_properties(geo):
             self.draw_line_3d((0.0, 1.0, 0.0, 0.7), point, geo.location)
 
-        gpu.state.blend_set('NONE')
-        gpu.state.depth_test_set('NONE')
-        # No direct replacement for line smoothing, but anti-aliasing is handled by the GPU.
+        bgl.glDisable(bgl.GL_BLEND)
+        bgl.glDisable(bgl.GL_LINE_SMOOTH)
+        bgl.glDisable(bgl.GL_DEPTH_TEST)
  
     def modal(self, context, event):                            
         cs = context.scene
@@ -266,7 +268,7 @@ class VNT_OT_boundary_data_control(Operator):
     
     def draw_bound_properties(self, operator, cs, geo):
         face_data = operator.get_bound_props(cs, geo)
-        self.shader = gpu.shader.from_builtin('SMOOTH_COLOR')
+        self.shader = gpu.shader.from_builtin("3D_SMOOTH_COLOR")
 
         for coords, color, indices, name, type_ in face_data:
             # coords = [tuple(vert) for vert in face_verts]
