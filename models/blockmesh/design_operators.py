@@ -465,7 +465,9 @@ class VNT_OT_get_blocks(Operator):
                 data = scn.bcustom.add()
                 data.b_name = result[i]
                 data.name = "hex ("+ ' '.join(str(e) for e in BV[i]) + ")"
-                data.grading = "simpleGrading (1 1 1)"
+                data.setgradx = scn.grad_x
+                data.setgrady = scn.grad_y
+                data.setgradz = scn.grad_z
                 data.setcellx = scn.cell_x
                 data.setcelly = scn.cell_y
                 data.setcellz = scn.cell_z
@@ -565,7 +567,7 @@ class VNT_OT_clearblocks(Operator):
         return{'FINISHED'}
     
     
-class VNT_OT_blocksdatacontrol(Operator):
+class VNT_OT_blocksdatacontrol(Operator): # TODO: Figure out what this does and fix it
     bl_idname = "vnt.blocksdatacontrol"
     bl_label = ""
     bl_description = "Add/Remove Blocks from blockmeshdict"
@@ -610,7 +612,7 @@ class VNT_OT_blocksdatacontrol(Operator):
                         item = scn.bcustom.add()
                         item.name = "hex " + str1
                         item.set_cells = "(" + str(scn.cell_x) + " " + str(scn.cell_y) + " " + str(scn.cell_z) + ")"
-                        item.grading = "simpleGrading (1 1 1)"
+                        item.grading = f"simpleGrading ({scn.grad_x} {scn.grad_y} {scn.grad_z})"
                         
                         scn.bcustom_index = len(scn.bcustom)-1
                         

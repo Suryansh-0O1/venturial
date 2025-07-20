@@ -82,7 +82,10 @@ class VNT_global_properties_collection(PropertyGroup):
     setcelly: IntProperty()
     setcellz: IntProperty()
     
-    grading: StringProperty()
+    # grading: StringProperty() #TODO: To be Removed
+    setgradx: FloatProperty()
+    setgrady: FloatProperty()
+    setgradz: FloatProperty()
     
     index: IntProperty()
         

@@ -730,6 +730,33 @@ def register():
         update=update_cellxyz,
     )
 
+    bpy.types.Scene.grad_x = FloatProperty(
+        name="X: ",
+        description="Select Gradient along X",
+        min=0.0,
+        max=10000.0,
+        default=1.0,
+        update=update_gradxyz,
+    )
+
+    bpy.types.Scene.grad_y = FloatProperty(
+        name="Y: ",
+        description="Select Gradient along Y",
+        min=0.0,
+        max=10000.0,
+        default=1.0,
+        update=update_gradxyz,
+    )    
+
+    bpy.types.Scene.grad_z = FloatProperty(
+        name="Z: ",
+        description="Select Gradient along Z",
+        min=0.0,
+        max=10000.0,
+        default=1.0,
+        update=update_gradxyz,
+    )
+
     bpy.types.Scene.ctm = FloatProperty(
         name="Convert To Meters:",
         description="Set converttoMeters parameter of Blockmeshdict",
