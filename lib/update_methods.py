@@ -58,6 +58,31 @@ def update_face_mode(self, context):
         bm.select_flush_mode()   
         me.update()
         bpy.ops.object.mode_set(mode = 'OBJECT')
+
+def update_edge_mode(self, context):
+    if self.edge_sel_mode == True:
+        bpy.ops.object.mode_set(mode = 'EDIT')
+        bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE', action='TOGGLE')
+        obj = context.edit_object
+        me = obj.data
+        bm = bmesh.from_edit_mesh(me)
+        
+        for e in bm.edges:
+            e.select = False
+        bm.select_flush_mode()   
+        me.update()
+        
+    else:
+        bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE', action='TOGGLE')
+        obj = context.edit_object
+        me = obj.data
+        bm = bmesh.from_edit_mesh(me)
+        
+        for e in bm.edges:
+            e.select = True
+        bm.select_flush_mode()   
+        me.update()
+        bpy.ops.object.mode_set(mode = 'OBJECT')
         
 
 def update_uicategory_mode(self, context):

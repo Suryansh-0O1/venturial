@@ -25,7 +25,7 @@ Venturial is inspired from [reynolds-blender](https://github.com/dmsurti/reynold
 Installation
 -----------------------------------------------------
 
-Venturial is being developed as a cross-platform software. However, for the time being, we recommend using <em>Ubuntu 18.04LTS or 20.04 LTS</em>. Venturial is regularly updated, hence you should visit this repository for the latest features and upcoming release. As [WSL](https://ubuntu.com/wsl) is also a choice of platform for openfoam users, you can install Blender on windows, however some of Venturial's features may not work until a solution or a work around is found for them. 
+Venturial is being developed as a cross-platform software. However, for the time being, we recommend using <em>Ubuntu 20.04LTS or 22.04 LTS</em>. Venturial is regularly updated, hence you should visit this repository for the latest features and upcoming release. As [WSL](https://ubuntu.com/wsl) is also a choice of platform for openfoam users, you can install Blender on windows, however some of Venturial's features may not work until a solution or a work around is found for them. 
 
 Venturial installs like most other Blender-addons. Read more on [Blender addons](https://docs.blender.org/manual/en/latest/editors/preferences/addons.html).
 

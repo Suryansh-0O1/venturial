@@ -886,6 +886,8 @@ def register():
 
     bpy.types.Scene.face_sel_mode = BoolProperty(default=False, update=update_face_mode)
 
+    bpy.types.Scene.edge_sel_mode = BoolProperty(default=False, update=update_edge_mode)
+
     bpy.types.Scene.statistics = BoolProperty(default=False)
 
     bpy.types.Scene.bfc = BoolProperty(default=False, description="Backface Culling")
@@ -1546,6 +1548,7 @@ def unregister():
         "use_debug_flags", "debugFlag_mesh", "debugFlag_intersections",
         "debugFlag_featureSeeds", "debugFlag_attraction", "debugFlag_layerInfo",
         "writeFlag_scalarLevels", "writeFlag_layerSets", "writeFlag_layerFields",
+        "edge_sel_mode", "grad_x", "grad_y", "grad_z",
     ]
     
     for prop in property_names:
