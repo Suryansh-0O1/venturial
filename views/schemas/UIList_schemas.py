@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import (UIList, PropertyGroup)
-from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty
+from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, FloatProperty, FloatVectorProperty
 #from venturial.models.header.file_handling_operators import VNT_OT_deactivate_mesh_file_item
 class VNT_UL_mesh_file_manager(UIList):
     """Callable class for mesh file manager"""
@@ -67,6 +67,20 @@ class fileitemproperties(PropertyGroup):
     ITEM_location : StringProperty(subtype="DIR_PATH")
     ITEM_history : StringProperty()
     ITEM_identifier : StringProperty()
+    
+    # Add geometry properties needed for SnappyHexMesh
+    geometry_type : EnumProperty(
+        name="Type", 
+        items=[
+            ("searchableBox", "Box", ""),
+            ("searchableSphere", "Sphere", ""),
+        ],
+        default="searchableBox"
+    )
+    box_min : FloatVectorProperty(size=3)
+    box_max : FloatVectorProperty(size=3)
+    sphere_center : FloatVectorProperty(size=3)
+    sphere_radius : FloatProperty()
    
         
 class tutorialitemproperties(PropertyGroup):
@@ -112,7 +126,6 @@ class CUSTOM_UL_verts(UIList):
         r2split = r2.split(factor = 0.3)
         r2c1 = r2split.column()
         r2c2 = r2split.column()
-        
         r2c1.prop(item, "vertindex", text="", emboss=False, translate=False)
         r2c2.prop(item, "name", text="", emboss=False, translate=False)
         
@@ -127,12 +140,24 @@ class CUSTOM_UL_blocks(UIList):
         row = col.split(factor=0.12)
         row.scale_y = 0.68
         row.prop(item, "b_name", text="", emboss=False, translate=False)
+
+        row = row.split()
         
         row = row.split(factor=0.33)
         row.prop(item, "name", text="", emboss=False, translate=False)
+
+        row = row.split()
         
-        row = row.split(factor=0.45)
-        row.prop(item, "grading", text="", emboss=False, translate=False, expand = False)
+        row = row.split(factor=0.15, align=True)
+        # row.prop(item, "grading", text="", emboss=False, translate=False, expand = False)
+
+        row.prop(item, "setgradx", text="", emboss=True, translate=False)
+        row = row.split(factor=0.2, align=True)
+        row.prop(item, "setgrady", text="", emboss=True, translate=False)
+        row = row.split(factor=0.3, align=True)
+        row.prop(item, "setgradz", text="", emboss=True, translate=False)
+
+        row = row.split()
         
         row = row.split(factor=0.255, align=True)
         row.prop(item, "setcellx", text="", emboss=True, translate=False)

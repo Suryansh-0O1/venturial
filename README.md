@@ -25,7 +25,7 @@ Venturial is inspired from [reynolds-blender](https://github.com/dmsurti/reynold
 Installation
 -----------------------------------------------------
 
-Venturial is being developed as a cross-platform software. However, for the time being, we recommend using <em>Ubuntu 18.04LTS or 20.04 LTS</em>. Venturial is regularly updated, hence you should visit this repository for the latest features and upcoming release. As [WSL](https://ubuntu.com/wsl) is also a choice of platform for openfoam users, you can install Blender on windows, however some of Venturial's features may not work until a solution or a work around is found for them. 
+Venturial is being developed as a cross-platform software. However, for the time being, we recommend using <em>Ubuntu 20.04LTS or 22.04 LTS</em>. Venturial is regularly updated, hence you should visit this repository for the latest features and upcoming release. As [WSL](https://ubuntu.com/wsl) is also a choice of platform for openfoam users, you can install Blender on windows, however some of Venturial's features may not work until a solution or a work around is found for them. 
 
 Venturial installs like most other Blender-addons. Read more on [Blender addons](https://docs.blender.org/manual/en/latest/editors/preferences/addons.html).
 
@@ -33,6 +33,8 @@ Venturial installs like most other Blender-addons. Read more on [Blender addons]
 2. If you are using WSL, then download Blender for Windows from Blender's [Download page](https://www.blender.org/download/).
 3. Within Blender, at the top bar, go to Edit >> Preferences. The Blender preferences window will open. Click the Addons section from the vertical menu. Click the install button. A file browser should open. Locate venturial's zip folder and click on the Install Add-on button.
 4. Finally, enable venturial by clicking the checkbox. You are ready to use Venturial. 
+
+5. Note: To use Venturial Node, which is a tree-node representation, you must download the pyvnt.whl file and place it in the libs/pyvnt folder. If this is not done, you will encounter an error while registering venturial-nodes. [PyVnt](https://github.com/FOSSEE/pyvnt)
 
 Licensing
 -----------------------------------------------------

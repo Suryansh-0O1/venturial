@@ -2,6 +2,8 @@ env
 build/
 dist/
 pyvnt.egg-info
+blender_vscode_development/
+blender_vscode_development.egg-info/
 
 manual_tests/
 manual_debug/

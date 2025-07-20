@@ -20,6 +20,14 @@ def update_cellxyz(self, context):
             scn.bcustom[i].setcellx = self.cell_x
             scn.bcustom[i].setcelly = self.cell_y
             scn.bcustom[i].setcellz = self.cell_z
+
+def update_gradxyz(self, context):
+    scn = context.scene
+    for i in range(0, len(scn.bcustom)):
+        if scn.bcustom[i].enabled:
+            scn.bcustom[i].setgradx = self.grad_x
+            scn.bcustom[i].setgrady = self.grad_y
+            scn.bcustom[i].setgradz = self.grad_z
             
 
 def update_mode(self, context):
@@ -47,6 +55,31 @@ def update_face_mode(self, context):
         
         for f in bm.faces:
             f.select = True
+        bm.select_flush_mode()   
+        me.update()
+        bpy.ops.object.mode_set(mode = 'OBJECT')
+
+def update_edge_mode(self, context):
+    if self.edge_sel_mode == True:
+        bpy.ops.object.mode_set(mode = 'EDIT')
+        bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE', action='TOGGLE')
+        obj = context.edit_object
+        me = obj.data
+        bm = bmesh.from_edit_mesh(me)
+        
+        for e in bm.edges:
+            e.select = False
+        bm.select_flush_mode()   
+        me.update()
+        
+    else:
+        bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE', action='TOGGLE')
+        obj = context.edit_object
+        me = obj.data
+        bm = bmesh.from_edit_mesh(me)
+        
+        for e in bm.edges:
+            e.select = True
         bm.select_flush_mode()   
         me.update()
         bpy.ops.object.mode_set(mode = 'OBJECT')

@@ -62,7 +62,7 @@ def write_dict(m, out_fp):
     blockdict.append("(")
     blocks=data['blocks']
     for b in blocks:
-        blockdict.append("hex "+listToOFStr(b[0])+" "+listToOFStr(b[1])+" "+b[2])
+        blockdict.append("hex "+listToOFStr(b[0])+" "+listToOFStr(b[1])+" "+"simpleGrading "+listToOFStr(b[2]))
     blockdict.append(");")
     #------blocks done------
     
@@ -203,12 +203,14 @@ class VNT_OT_fill_dict_file(Operator):
         
         #Add vertices to Dictionary
         for i in scn.vcustom:
-            bmdict['vertices'].append(vert_strtolist(i.name))
+            co=i.vert_collection[0].vert_loc
+            bmdict['vertices'].append(vert_strtolist("(" + str(co[0]) + ", " + str(co[1]) + ", " + str(co[2]) + ")"))
             
         #Add blocks to Dictionary
         for i in scn.bcustom:
-            bmdict['blocks'].append([hex_strtolist(i.name), [i.setcellx, i.setcelly, i.setcellz], i.grading]) 
-            
+            # bmdict['blocks'].append([hex_strtolist(i.name), [i.setcellx, i.setcelly, i.setcellz], i.grading]) # TODO: Change grading variables
+            bmdict['blocks'].append([hex_strtolist(i.name), [i.setcellx, i.setcelly, i.setcellz], [i.setgradx, i.setgrady, i.setgradz]])
+
         #Add boundary(faces) to Dictionary
         for i in scn.fcustom:
             bmdict['boundary'].append([i.face_des, i.face_type, face_strtolist(i.name)])

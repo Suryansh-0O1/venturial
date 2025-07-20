@@ -3,6 +3,7 @@ from bpy.props import EnumProperty, BoolProperty
 import bpy
 import bmesh
 import random
+from mathutils.bvhtree import BVHTree
 
 # Converts a face from string to list of integers,
 # example: print(face_strtolist("(9 0 8 7)")) = [9, 0, 8, 7]
@@ -35,6 +36,29 @@ class VNT_OT_New_Boundary(Operator):
         return context.window_manager.invoke_props_dialog(self, width=300)
     
     def execute(self, context):   
+        """
+        Executes the operator to process selected faces in the active object in Blender.
+        This function performs the following tasks:
+        1. Checks if the active object is in Edit Mode and if faces are selected.
+        2. Validates that selected faces have 3 or 4 vertices (triangles or quads).
+        3. Processes triangular faces to handle duplicate vertices and block names.
+        4. Adds selected face information to a custom list in the scene, including:
+           - Face name
+           - Face description
+           - Face color
+           - Face type
+           - Object name
+        5. Assigns a material to the selected faces.
+        Args:
+            context (bpy.types.Context): The context in which the operator is executed.
+        Returns:
+            set: A set containing {'FINISHED'} if the operation completes successfully.
+        Notes:
+            - `sel_v` is a list of lists, where each inner list contains the vertex indices
+              of a selected face in the active object.
+            - If a face has more than 4 vertices, an informational message is reported.
+            - If no face name is provided, an informational message is reported.
+        """
         scn = context.scene 
         obj = context.object
 
@@ -112,6 +136,7 @@ class VNT_OT_New_Boundary(Operator):
                             item.face_des = scn.face_name.facename
                             item.face_clr = clr
                             item.face_type = scn.bdclist
+                            item.face=bm.faces[sel_fac_list.index(i)]
                             # bpy.ops.object.material_slot_add()
                             mat_clr = bpy.data.materials.new("clr")
                             mat_clr.diffuse_color = clr
@@ -135,7 +160,7 @@ class VNT_OT_New_Boundary(Operator):
 class VNT_OT_faceactions(Operator):
     bl_idname = "custom.face_action"
     bl_label = ""
-    bl_description = "Add/Remove Faces or Move Faces Up/Down"
+    bl_description = "Remove Selected"
     bl_options = {'REGISTER'}
 
     action: EnumProperty(items=(('REMOVE', "Remove", ""),
@@ -156,7 +181,10 @@ class VNT_OT_faceactions(Operator):
             pass
 
         if self.action == 'REMOVE':
-            self.report({'INFO'}, "Feature in development. Use delete all for now.")
+            for i in range(len(scn.fcustom) - 1, -1, -1):  # Iterate in reverse
+                if scn.fcustom[i].enabled:
+                    scn.fcustom.remove(i)
+            self.report({'INFO'}, "Selected Faces removed from list")
 
         if self.action == 'ADD':
 
@@ -411,40 +439,145 @@ class VNT_OT_clearfaces(Operator):
             self.report({'INFO'}, "Nothing to remove")
         return{'FINISHED'}
 
+def project_point_onto_plane(point, plane_point, plane_normal):
+        """Project a point onto a plane defined by a point and a normal."""
+        vec = point - plane_point
+        distance = vec.dot(plane_normal)
+        projection = point - distance * plane_normal
+        return distance, projection
+
+
+def point_in_polygon_2d(pt, poly):
+    """
+    Determine if a 2D point is inside a polygon using the ray-casting algorithm.
+
+    :param pt: tuple (x, y) of the point
+    :param poly: list of tuples [(x1, y1), (x2, y2), ...] defining the polygon vertices
+    :return: True if inside or on edge, False otherwise
+    """
+    x, y = pt
+    inside = False
+    n = len(poly)
+    for i in range(n):
+        xi, yi = poly[i]
+        xj, yj = poly[(i + 1) % n]
+        if (yi > y) != (yj > y):
+            x_intersect = (xj - xi) * (y - yi) / (yj - yi + 1e-10) + xi
+            if x < x_intersect:
+                inside = not inside
+    return inside
+
+def faces_intersect(faces, tol=1e-6):
+    """
+    Check if one face is entirely contained within the other.
+
+    :param faces: list of two bmesh Face elements
+    :param tol: tolerance for projection errors
+    :return: True if one face lies completely within the other, False otherwise
+    """
+    if len(faces) != 2:
+        raise ValueError("Exactly two faces are required.")
+
+    f1, f2 = faces
+
+    def face_completely_inside(inner, outer):
+        # Build 2D basis for the outer face
+        u = (outer.verts[1].co - outer.verts[0].co).normalized()
+        v = outer.normal.cross(u).normalized()
+
+        poly2d = [
+            (
+                (vtx.co - outer.verts[0].co).dot(u),
+                (vtx.co - outer.verts[0].co).dot(v)
+            ) for vtx in outer.verts
+        ]
+
+        for vtx in inner.verts:
+            dist, proj = project_point_onto_plane(vtx.co, outer.verts[0].co, outer.normal)
+            if abs(dist) > tol:
+                return False
+            pt2d = (
+                (proj - outer.verts[0].co).dot(u),
+                (proj - outer.verts[0].co).dot(v)
+            )
+            if not point_in_polygon_2d(pt2d, poly2d):
+                return False
+
+        return True
+
+    return face_completely_inside(f1, f2) or face_completely_inside(f2, f1)
+
 # Operators for mergepatchpairs
 class VNT_OT_merge_faces(Operator):
     bl_idname = "vnt.merge_faces"
     bl_label = "Merge Faces"
-    bl_description = "Merge selected Faces"
+    bl_description = "Merge two selected overlapping faces"
     bl_options = {'REGISTER', 'UNDO'}
 
-    def draw(self, context):
-        layout = self.layout
+    def execute(self, context):
         cs = context.scene
+        obj = context.object
 
-        r1 = layout.row(align=True)
-        r1.label(text="Master Face:")
-        r1.prop(cs, "faceList_master")
+        if obj.mode != 'EDIT':
+            self.report({'ERROR'}, "You must be in Edit Mode to merge faces.")
+            return {'CANCELLED'}
 
-        r2 = layout.row(align=True)
-        r2.label(text="Slave:")
-        r2.prop(cs, "faceList_slave")
+        bm = bmesh.from_edit_mesh(obj.data)
+        selected_faces = [f for f in bm.faces if f.select]
+
+        if len(selected_faces) != 2:
+            self.report({'ERROR'}, "Exactly two faces must be selected.")
+            return {'CANCELLED'}
+        
+        # Convert selected faces to their vertex indices
+        selected_face_indices = [[v.index for v in f.verts] for f in selected_faces]
+
+        # Verify both faces exist in context.scene.fcustom
+        fcustom_faces = [face_strtolist(f.name) for f in cs.fcustom]
+        if not all(face in fcustom_faces for face in selected_face_indices):
+            print(selected_face_indices)
+            print(fcustom_faces)
+            self.report({'ERROR'}, "Selected faces must exist in the face list.")
+            return {'CANCELLED'}
+
+        # Check if the two faces are overlapping
+        face_areas = [f.calc_area() for f in selected_faces]
+        if not faces_intersect(selected_faces):
+            self.report({'ERROR'}, "Selected faces are not overlapping.")
+            return {'CANCELLED'}
+
+        fcustom_faces = [face_strtolist(f.name) for f in cs.fcustom]
+
+        selected_face_des=[[],[]]
+
+        # search for the master face in the fcustom list
+        for i in range(len(fcustom_faces)):
+            if fcustom_faces[i] == selected_face_indices[0]:
+                selected_face_des[0] = cs.fcustom[i].face_des
+                break
+        # search for the slave face in the fcustom list
+        for i in range(len(fcustom_faces)):
+            if fcustom_faces[i] == selected_face_indices[1]:
+                selected_face_des[1] = cs.fcustom[i].face_des
+                break
+        
+        # determine the master and slave faces based on the area
+        master_face, slave_face = (selected_face_des[0], selected_face_des[1]) if face_areas[0] > face_areas[1] else (selected_face_des[1], selected_face_des[0])
+
+        # Add the mapping to fmcustom
+        item = cs.fmcustom.add()
+        item.master_face = master_face
+        item.slave_face = slave_face
+
+        self.report({'INFO'}, f"Merged {item.master_face} (master) with {item.slave_face} (slave).")
+        return {'FINISHED'}
+
+    def face_to_string(self, face):
+        """Convert a face's vertex indices to a string representation."""
+        return f"({', '.join(str(v.index) for v in face.verts)})"
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width=300)
-    
-    def execute(self, context):  
-        cs = context.scene
-        
-        if cs.faceList_master == cs.faceList_slave:
-            self.report({'ERROR'}, "Master and Slave faces cannot be same")
-            return {'CANCELLED'}
-        else: 
-            item = cs.fmcustom.add()
-            item.master_face = cs.faceList_master
-            item.slave_face = cs.faceList_slave
-        
-        return {'FINISHED'}
 
 class VNT_OT_merge_faces_delete(Operator):
     bl_idname = "vnt.merge_faces_delete"
