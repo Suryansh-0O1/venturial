@@ -140,12 +140,24 @@ class CUSTOM_UL_blocks(UIList):
         row = col.split(factor=0.12)
         row.scale_y = 0.68
         row.prop(item, "b_name", text="", emboss=False, translate=False)
+
+        row = row.split()
         
         row = row.split(factor=0.33)
         row.prop(item, "name", text="", emboss=False, translate=False)
+
+        row = row.split()
         
-        row = row.split(factor=0.45)
-        row.prop(item, "grading", text="", emboss=False, translate=False, expand = False)
+        row = row.split(factor=0.15, align=True)
+        # row.prop(item, "grading", text="", emboss=False, translate=False, expand = False)
+
+        row.prop(item, "setgradx", text="", emboss=True, translate=False)
+        row = row.split(factor=0.2, align=True)
+        row.prop(item, "setgrady", text="", emboss=True, translate=False)
+        row = row.split(factor=0.3, align=True)
+        row.prop(item, "setgradz", text="", emboss=True, translate=False)
+
+        row = row.split()
         
         row = row.split(factor=0.255, align=True)
         row.prop(item, "setcellx", text="", emboss=True, translate=False)

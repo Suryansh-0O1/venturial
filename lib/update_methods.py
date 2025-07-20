@@ -20,6 +20,14 @@ def update_cellxyz(self, context):
             scn.bcustom[i].setcellx = self.cell_x
             scn.bcustom[i].setcelly = self.cell_y
             scn.bcustom[i].setcellz = self.cell_z
+
+def update_gradxyz(self, context):
+    scn = context.scene
+    for i in range(0, len(scn.bcustom)):
+        if scn.bcustom[i].enabled:
+            scn.bcustom[i].setgradx = self.grad_x
+            scn.bcustom[i].setgrady = self.grad_y
+            scn.bcustom[i].setgradz = self.grad_z
             
 
 def update_mode(self, context):
