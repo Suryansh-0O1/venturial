@@ -1,6 +1,6 @@
 from bpy.types import Panel
 from venturial.views.mainpanel.layout import mainPanel
-from venturial.views.header.layout import header_layout
+from venturial.views.header.layout import header_layout,header_preset_layout
 
 class VNT_PT_usermodeview(Panel):
     """Main Panel Layout of User Mode"""
@@ -13,6 +13,10 @@ class VNT_PT_usermodeview(Panel):
     def draw_header(self, context):
         layout = self.layout   
         getattr(header_layout(), "draw")(layout, context)
+    
+    def draw_header_preset(self, context):
+        layout = self.layout   
+        getattr(header_preset_layout(), "draw")(layout, context)
         
     def draw(self, context):
         layout = self.layout

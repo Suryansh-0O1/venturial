@@ -160,14 +160,13 @@ class VNT_OT_edge_data_control(Operator):
         return edge_prop # returns the midpoints of selected edges.
     
     def draw_edge_properties(self, operator, context, geo):
-        
         bgl.glEnable(bgl.GL_BLEND)
         bgl.glEnable(bgl.GL_LINE_SMOOTH)
         bgl.glEnable(bgl.GL_DEPTH_TEST)
 
         for point in self.get_edge_properties(geo):
             self.draw_line_3d((0.0, 1.0, 0.0, 0.7), point, geo.location)
-               
+
         bgl.glDisable(bgl.GL_BLEND)
         bgl.glDisable(bgl.GL_LINE_SMOOTH)
         bgl.glDisable(bgl.GL_DEPTH_TEST)
@@ -332,7 +331,13 @@ class VNT_OT_boundary_data_control(Operator):
         for item in cs.fcustom:
             # {'name': '(7 3 1 5)', 'face_des': 'inlet', 'face_clr': <bpy id property array [4]>, 'face_type': 3}
             # print(f"compare -> {item['name']} vs {cs.fcustom_index}")
-            coords = [tuple(vertex_props[i]) for i in self.get_indices(item['name'])]
+            coords = []
+            for i in self.get_indices(item['name']):
+                if i in vertex_props:
+                    coords.append(tuple(vertex_props[i]))
+                else:
+                    # Handle missing vertex - either skip this face or get vertex from mesh data
+                    continue
             indices = [(0, 1, 2), (2, 3, 0)] if len(coords) == 4 else [(0, 1, 2)]
 
             clr = tuple(item['face_clr'])
@@ -383,4 +388,3 @@ class VNT_OT_boundary_data_control(Operator):
         else:
             self.report({'WARNING'}, "View3D not found, cannot run operator")
             return {'CANCELLED'}
-            

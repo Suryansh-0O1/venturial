@@ -203,7 +203,8 @@ class VNT_OT_fill_dict_file(Operator):
         
         #Add vertices to Dictionary
         for i in scn.vcustom:
-            bmdict['vertices'].append(vert_strtolist(i.name))
+            co=i.vert_collection[0].vert_loc
+            bmdict['vertices'].append(vert_strtolist("(" + str(co[0]) + ", " + str(co[1]) + ", " + str(co[2]) + ")"))
             
         #Add blocks to Dictionary
         for i in scn.bcustom:

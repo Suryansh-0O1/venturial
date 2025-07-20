@@ -93,7 +93,7 @@ class VNT_OT_save_preferences(Operator):
     bl_idname = "vnt.save_preferences"
     bl_description = "Open user general settings window"
     
-    pref_loc : StringProperty(default=bpy.utils.script_paths(subdir='addons')[1]+"/venturial/preferences/user_custom_settings.json")
+    pref_loc : StringProperty(default=bpy.utils.script_paths(subdir='addons')[0]+"/venturial/preferences/user_custom_settings.json")
     
     def __init__(self, cs=None, pref_data=None):
         """Initialise a dictionary to store the user preferences for dumping 
@@ -101,13 +101,13 @@ class VNT_OT_save_preferences(Operator):
         self.cs = bpy.context.scene
         self.pref_data = {key: getattr(self.cs.pref_pointer, key) for key in self.cs.pref_pointer.__annotations__.keys()}
     
-    def toggle(self):
-        self.cs.row_en = True
+    def toggle(self, context):
+        context.scene.row_en = True
     
     def __del__(self):
         """Wait for 0.1 seconds for save preferences dialog box to close and then toggle row_en
         to allow interaction with settings dialog box."""
-        bpy.app.timers.register(functools.partial(self.toggle), first_interval=0.1)
+        bpy.app.timers.register(functools.partial(self.toggle, bpy.context), first_interval=0.1)
         
     def draw(self, context):
         layout = self.layout
@@ -143,20 +143,20 @@ class VNT_OT_reset_preferences(Operator):
     bl_idname = "vnt.reset_preferences"
     bl_description = "Reset preferences to system default"
     
-    default_pref_loc : StringProperty(default=bpy.utils.script_paths(subdir='addons')[1]+"/venturial/preferences/system_default_settings.json")
+    default_pref_loc : StringProperty(default=bpy.utils.script_paths(subdir='addons')[0]+"/venturial/preferences/system_default_settings.json")
     
     def __init__(self, cs=None, default_prefs=None):
         """Initialise a dictionary to store default preferences data read from default_pref_loc"""
         self.cs = bpy.context.scene
         with open(self.default_pref_loc, 'r') as inp : self.default_prefs = json.load(inp)
         
-    def toggle(self):
-        self.cs.row_en = True
+    def toggle(self, context):
+        context.scene.row_en = True
         
     def __del__(self):
         """Wait for 0.1 seconds for reset preferences dialog box to close and then toggle row_en
         to allow interaction with settings dialog box."""
-        bpy.app.timers.register(functools.partial(self.toggle), first_interval=0.1)
+        bpy.app.timers.register(functools.partial(self.toggle, bpy.context), first_interval=0.1)
         
     def draw(self, context):
         layout = self.layout
@@ -480,9 +480,9 @@ class VNT_OT_close_venturial(Operator):
         
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width=410)
-    
-  
 
 
-    
-    
+
+
+
+

@@ -103,47 +103,25 @@ class VNT_OT_add_update_verts(Operator):
             
             if obj.mode == 'EDIT':
                            
-                if len(scn.vcustom) > 0:
-                    
+                if len(scn.vcustom) >= 0:
                     context.scene.vcustom.clear()
                     for v in bm.verts:
                         r = []
                         g = list(mat @ v.co)
                             
                         for i in g:
-                            r.append(str(round(i, 3)))
+                            r.append(str(round(i, 4)))
                                 
                         m = "(" + r[0] + ", " + r[1] + ", " + r[2] + ")"
                         n = str(v.index)
-                        vert_list.append([m, n])
+                        vert_list.append([m, n, g])
                             
                     for i in vert_list:
                         item = scn.vcustom.add()
                         item.name = i[0]
                         item.vertindex = i[1]
-                        scn.vcustom_index = len(scn.vcustom)-1
-                        info = '"%s" added to list' % (item.name)
-                        self.report({'INFO'}, info)
-                    
-                    bpy.ops.object.mode_set(mode='OBJECT')
-                    
-                else:
-                    
-                    for v in bm.verts:
-                        r = []
-                        g = list(mat @ v.co)
-                            
-                        for i in g:
-                            r.append(str(round(i, 2)))
-                                
-                        m = "(" + r[0] + ", " + r[1] + ", " + r[2] + ")"
-                        n = str(v.index)
-                        vert_list.append([m, n])
-                            
-                    for i in vert_list:
-                        item = scn.vcustom.add()
-                        item.name = i[0]
-                        item.vertindex = i[1]
+                        new_vertex = item.vert_collection.add()
+                        new_vertex.vert_loc = i[2]
                         scn.vcustom_index = len(scn.vcustom)-1
                         info = '"%s" added to list' % (item.name)
                         self.report({'INFO'}, info)

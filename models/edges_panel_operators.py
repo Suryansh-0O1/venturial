@@ -1,24 +1,78 @@
 import bpy
-from bpy.types import Operator
+from bpy.types import Operator, PropertyGroup
+from bpy.props import FloatVectorProperty, IntProperty, StringProperty, CollectionProperty
 import bmesh, time
 import numpy as np
 import bgl
 import gpu
 from gpu_extras.batch import batch_for_shader
 from bpy_extras import object_utils
+from bpy.props import CollectionProperty, IntProperty, FloatVectorProperty
 
 from venturial.models.edge_gen_algorithms import *
 
-a = [None, ]
-verts = []
-def sync(self):
-    try: 
-        for i in range(len(bpy.context.scene.ecustom)):
-            for j in range(100):
-                bpy.context.scene.ecustom[i].vertex_col[j].vert_loc = verts[i][j]
+def update_selected_edge(self, context):
+    """
+    Automatically select the edge corresponding to the current ecustom_index
+    """
+    try:
+        # Call the select edge operator
+        bpy.ops.vnt.select_edge()
     except Exception as e:
-        print(f"exception in sync ------> {e}")
-        return
+        print(f"Error updating selected edge: {e}")
+
+_draw_data_global = {}
+
+def get_edge_draw_data():
+    """
+    Returns a dict used to store temporary drawing data.
+    This dictionary is attached to the scene and reinitialized on file load.
+    """
+    scn = bpy.context.scene
+    key = scn.as_pointer()  # unique identifier for the scene
+    if key not in _draw_data_global:
+        _draw_data_global[key] = {"draw_handlers": [], "verts": []}
+    return _draw_data_global[key]
+
+def sync(self):
+    try:
+        cs = bpy.context.scene
+        edge_data = get_edge_draw_data()
+
+        verts_data = edge_data.setdefault("verts", [])
+
+        # Ensure `verts_data` matches the length of `ecustom`
+        while len(verts_data) < len(cs.ecustom):
+            verts_data.append([])
+
+        for i in range(len(cs.ecustom)):
+            custom_edge = cs.ecustom[i]
+
+            # Skip if no custom vertices
+            if len(custom_edge.vert_collection) == 0:
+                continue
+
+            vtx_list = verts_data[i]
+
+            # Ensure length of vertex_col and verts match
+            if len(custom_edge.vertex_col) < 100:
+                print(f"[sync] Warning: vertex_col length < 100 for edge {i}.")
+                continue
+
+            if len(vtx_list) < 100:
+                print(f"[sync] Warning: verts[{i}] has insufficient points ({len(vtx_list)}).")
+                continue
+
+            for j in range(100):
+                custom_edge.vertex_col[j].vert_loc = vtx_list[j]
+
+    except Exception as e:
+        print(f"[sync] Exception during sync: {e}")
+
+
+class VNT_ecustom_edge_obj(PropertyGroup):
+    source_object: bpy.props.StringProperty()
+    edge_index: bpy.props.IntProperty(default=-1)
 
 class OBJECT_OT_add_single_vertex(Operator):
     bl_idname = "mesh.add_single_vertex"
@@ -43,21 +97,100 @@ class VNT_OT_new_edge(Operator):
     bl_label = "Generate Edge"
 
     def execute(self, context):
-        a.append(None)
-        verts.append([])
-
         cs = context.scene
+        edge_data = get_edge_draw_data()
+
         edg = cs.ecustom.add()
         index = len(cs.ecustom) - 1
-        a[index] = None
-        verts[index] = []
 
         edg.name = str(time.time())
         edg.edge_type = cs.curve_type
-
+        cs.ecustom_index = index
+        
         for i in range(100):
             edg.vertex_col.add()
+
+        # Maintain vertex/draw data lists in scene’s edge draw data
+        if "draw_handlers" not in edge_data:
+            edge_data["draw_handlers"] = []
+        if "verts" not in edge_data:
+            edge_data["verts"] = []
+
+        # Extend arrays if needed
+        while len(edge_data["draw_handlers"]) <= index:
+            edge_data["draw_handlers"].append(None)
+        while len(edge_data["verts"]) <= index:
+            edge_data["verts"].append([])
+
+        #test to store object edge 
+        bpy.ops.object.mode_set( mode = 'EDIT' )
+        selectedEdges = []
+
+        selectedEdges = [i for i in bmesh.from_edit_mesh(context.active_object.data).edges if i.select]
+
+        if len(selectedEdges) > 1:
+            self.report({'ERROR', 'Please select only one edge'})
+            return
+        if len(selectedEdges) < 1:
+            self.report({'ERROR', 'Please select an edge'})
+            return
+        
+        
+        link = cs.ecustom_edge_obj.add()
+        link.source_object = context.active_object.name
+        link.edge_index = selectedEdges[0].index
+
         return{'FINISHED'}
+
+class VNT_OT_select_edge(Operator):
+    bl_idname = "vnt.select_edge"
+    bl_label = "Select Edge"
+
+    def execute(self, context):
+        sc = context.scene
+        index = sc.ecustom_index
+
+        if index < 0 or index >= len(sc.ecustom_edge_obj):
+            self.report({'ERROR'}, "Invalid edge index")
+            return {'CANCELLED'}
+
+        custom_edge = sc.ecustom_edge_obj[index]
+        obj = bpy.data.objects.get(custom_edge.source_object)
+
+        if not obj:
+            self.report({'ERROR'}, "Source object not found")
+            return {'CANCELLED'}
+
+        context.view_layer.objects.active = obj
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        # Get BMesh data
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.edges.ensure_lookup_table()
+
+        # Deselect all edges
+        for edge in bm.edges:
+            edge.select = False
+
+        # Select the target edge
+        if 0 <= custom_edge.edge_index < len(bm.edges):
+            bm.edges[custom_edge.edge_index].select = True
+        else:
+            self.report({'ERROR'}, "Edge index out of range")
+            return {'CANCELLED'}
+
+        bmesh.update_edit_mesh(obj.data)
+        # context.area.tag_redraw()
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                for region in area.regions:
+                    if region.type == 'WINDOW':
+                        override = {'window': context.window, 'screen': context.screen, 'area': area, 'region': region}
+                        bpy.ops.view3d.view_selected(override)
+                        break
+        # bpy.ops.view3d.view_selected()
+
+        return {'FINISHED'}
 
 class VNT_OT_new_vert(Operator):
     '''
@@ -98,7 +231,8 @@ class VNT_OT_new_vert(Operator):
     
     def first(self, context):
         cs = context.scene
-        print("Executing first")
+        alignment = cs.edge_alignment
+        print("Executing first with alignment:", alignment)
         try:
             bpy.ops.object.mode_set( mode = 'EDIT' )
             selectedEdges = []
@@ -117,33 +251,72 @@ class VNT_OT_new_vert(Operator):
 
             x = g @ selectedEdges[0].verts[0].co
             y = g @ selectedEdges[0].verts[1].co
-        except Exception:
+
+            obj = context.active_object
+            cube_center = obj.location
+            dims = obj.dimensions
+
+            # Calculate the midpoint of the edge
+            midpoint = [(x[i] + y[i]) / 2 for i in range(3)]
+
+            # Calculate face_center and projection based on alignment
+            face_center = list(cube_center)
+            direction = [0.0, 0.0, 0.0]
+
+            if alignment == "Z":
+                face_center[2] += dims.z / 2
+                direction = [midpoint[0] - face_center[0], midpoint[1] - face_center[1], 0]
+            elif alignment == "-Z":
+                face_center[2] -= dims.z / 2
+                direction = [midpoint[0] - face_center[0], midpoint[1] - face_center[1], 0]
+            elif alignment == "X":
+                face_center[0] += dims.x / 2
+                direction = [0, midpoint[1] - face_center[1], midpoint[2] - face_center[2]]
+            elif alignment == "-X":
+                face_center[0] -= dims.x / 2
+                direction = [0, midpoint[1] - face_center[1], midpoint[2] - face_center[2]]
+            elif alignment == "Y":
+                face_center[1] += dims.y / 2
+                direction = [midpoint[0] - face_center[0], 0, midpoint[2] - face_center[2]]
+            elif alignment == "-Y":
+                face_center[1] -= dims.y / 2
+                direction = [midpoint[0] - face_center[0], 0, midpoint[2] - face_center[2]]
+
+            # Normalize direction
+            length = sum([d ** 2 for d in direction]) ** 0.5
+            if length == 0:
+                self.report({'ERROR'}, "Direction vector is zero-length")
+                return
+            direction = [d / length for d in direction]
+
+            # Calculate radius
+            face_diagonal = (dims.x ** 2 + dims.y ** 2) ** 0.5
+            radius = face_diagonal / 2
+
+            # Final vertex coordinate
+            coord = [face_center[i] + direction[i] * radius for i in range(3)]
+        except Exception as e:
+            print(f"Error in first: {e}")
             return
-        
-        for i in range(3):
-            self.curr_edge.vc.add()
-        
-        self.curr_edge.vc[0].vert_loc=x
-        self.curr_edge.vc[2].vert_loc=y
-        coord = [None, None, None]
 
         for i in range(3):
-            coord[i] = (x[i] + y[i])/1.5
-        
+            self.curr_edge.vc.add()
+
+        self.curr_edge.vc[0].vert_loc = x
+        self.curr_edge.vc[2].vert_loc = y
         self.curr_edge.vert_collection.add()
-        self.curr_edge.vert_collection[0].vert_loc=coord
-        self.curr_edge.vc[1].vert_loc=coord
+        self.curr_edge.vert_collection[0].vert_loc = coord
+        self.curr_edge.vc[1].vert_loc = coord
         print(coord)
 
         bpy.ops.object.mode_set(mode='OBJECT')
-        # bpy.ops.mesh.primitive_vert_add() # to be changed
         bpy.ops.mesh.add_single_vertex()
         bpy.ops.object.mode_set(mode='OBJECT')
 
         vertex = context.selected_objects[0]
         vertex.location = coord
         vertex.name = f"{self.curr_edge.name}01"
-        vertex=0
+        vertex = 0
     
     def n_first(self, context):
         print("Executing n_first")
@@ -178,8 +351,14 @@ class VNT_OT_remove_edge(Operator):
 
     def execute(self, context):
         cs = context.scene
+        edge_data = get_edge_draw_data()
+
         try:
             index = cs.ecustom_index
+            if index < 0 or index >= len(cs.ecustom):
+                self.report({'ERROR'}, 'No spline selected to remove')
+                return {'CANCELLED'}
+
             cur_spline = cs.ecustom[index]
 
         except Exception as e:
@@ -187,20 +366,31 @@ class VNT_OT_remove_edge(Operator):
             return {'CANCELLED'}
         
         for i in range(len(cur_spline.vert_collection)-1, -1, -1):
-            bpy.data.objects.remove(bpy.data.object[f"{cur_spline.name}0{i+1}"], do_unlink=True)
+            bpy.data.objects.remove(bpy.data.objects[f"{cur_spline.name}0{i+1}"], do_unlink=True)
             cur_spline.vert_collection.remove(i)
         
         cs.ecustom.remove(int(index))
-        
+        cs.ecustom_edge_obj.remove(int(index))
+         
+        # Remove draw handler if it exists
         try:
-            bpy.types.SpaceView3D.draw_handler_remove(a[index], 'WINDOW')
+            if index < len(edge_data["draw_handlers"]):
+                handler = edge_data["draw_handlers"][index]
+                if handler:
+                    bpy.types.SpaceView3D.draw_handler_remove(handler, 'WINDOW')
+                    edge_data["draw_handlers"][index] = None
         except Exception as e:
-            pass
-            
-        a[index] = None
-        verts[index] = []
-        index = index - 1
+            print(f"Error removing draw handler: {e}")
 
+        # Clean up draw data
+        if index < len(edge_data["verts"]):
+            edge_data["verts"][index] = []
+        if index < len(edge_data["verts"]):
+            edge_data["verts"].pop(index)
+        if index < len(edge_data["draw_handlers"]):
+            edge_data["draw_handlers"].pop(index)
+        cs.ecustom_index = max(0, index - 1)
+        
         draw_p(self, context)
         return {'FINISHED'}
 
@@ -214,10 +404,18 @@ class VNT_OT_remove_vert(Operator):
 
     def execute(self, context):
         cs = context.scene
+        edge_data = get_edge_draw_data()
+
         try: 
             index = cs.ecustom_index
+            if index < 0 or index >= len(cs.ecustom):
+                self.report({'ERROR'}, 'No spline selected to remove vertex from')
+                return {'CANCELLED'}
 
             r_index = len(cs.ecustom[index].vert_collection) - 1
+            if r_index < 0:
+                self.report({'ERROR'}, 'No vertex to remove')
+                return {'CANCELLED'}
 
             cs.ecustom[int(index)].vert_collection.remove(int(r_index))
             self.index = cs.ecustom_index
@@ -227,27 +425,44 @@ class VNT_OT_remove_vert(Operator):
             return {'CANCELLED'}
         
         bpy.data.objects.remove(bpy.data.objects[f"{self.curr_edge.name}0{r_index+1}"], do_unlink=True)
+        
         len1 = len(self.curr_edge.vertex_col)
         length = len(self.curr_edge.vert_collection)
         for i in range(length):
-            self.curr_edge.vert_collection[i].vert_loc=(self.curr_edge.vertex_col[(i+1)*len1//(length+1)].vert_loc)
+            self.curr_edge.vert_collection[i].vert_loc = self.curr_edge.vertex_col[(i+1)*len1//(length+1)].vert_loc
+        
         for i in range(length):
             _a_ = bpy.data.objects[f"{self.curr_edge.name}0{i+1}"]
             _a_.location = self.curr_edge.vert_collection[i].vert_loc
         
+        # Warns the user that All verts are removed 
         if len(cs.ecustom[int(index)].vert_collection) == 0:
-            cs.ecustom.remove(int(index))
+            self.report({'WARNING'}, 'All vertices removed. Edge still exists. Use "Remove Edge" to delete the edge.')
+
+        # cs.ecustom_index = index
+
+        # Remove the draw handler if no vertices are left
+        if len(cs.ecustom[int(index)].vert_collection) == 0:
             try:
-                bpy.types.SpaceView3D.draw_handler_remove(a[index], 'WINDOW')
+                handler_list = edge_data.get("draw_handlers", [])
+                if index < len(handler_list) and handler_list[index]:
+                    bpy.types.SpaceView3D.draw_handler_remove(handler_list[index], 'WINDOW')
+                    handler_list[index] = None
+
             except Exception as e:
+                print(f"Error removing draw handler: {e}")
                 pass
-                
-            a[index] = None
-            verts[index] = []
-            index = index - 1
-        
+
+        if index < len(edge_data.get("verts", [])):
+                edge_data["verts"][index] = []
+
         draw_p(self, context)
         return {'FINISHED'}
+
+# def tag_redraw():
+#     for area in bpy.context.screen.areas:
+#         if area.type == 'VIEW_3D':
+#             area.tag_redraw()
 
 def draw_p(self, context):
     '''
@@ -255,61 +470,79 @@ def draw_p(self, context):
     Algorithm to be changed 
     '''
     cs = context.scene
+    edge_data = get_edge_draw_data()
+
+    # Make sure the storage lists are initialized and match the edge count
+    draw_handlers = edge_data.setdefault("draw_handlers", [])
+    verts_data = edge_data.setdefault("verts", [])
+
+    # Ensure storage has correct length
+    while len(draw_handlers) < len(cs.ecustom):
+        draw_handlers.append(None)
+    while len(verts_data) < len(cs.ecustom):
+        verts_data.append([])
+
     for i in range(len(cs.ecustom)):
-        if a[i] != None:
-            try:
-                bpy.types.SpaceView3D.draw_handler_remove(a[i], 'WINDOW')
-            except Exception as e:
-                pass
+        try:
+            # Remove any existing draw handler
+            if draw_handlers[i] is not None:
+                bpy.types.SpaceView3D.draw_handler_remove(draw_handlers[i], 'WINDOW')
+                draw_handlers[i] = None
+        except Exception as e:
+            print(f"[draw_p] Failed to remove draw handler for edge {i}: {e}")
+
+        if len(cs.ecustom[i].vert_collection) == 0:
+            continue
+
+        # Safely collect object locations from the scene
+        try:
+            vert_locs = []
+            for j in range(len(cs.ecustom[i].vert_collection)):
+                obj_name = f"{cs.ecustom[i].name}0{j+1}"
+                obj = bpy.data.objects.get(obj_name)
+                if obj:
+                    vert_locs.append(obj.location)
+                else:
+                    print(f"[draw_p] Warning: Object {obj_name} not found.")
+
+            # Insert control points at start and end
+            vert_locs.insert(0, cs.ecustom[i].vc[0].vert_loc[:])
+            vert_locs.append(cs.ecustom[i].vc[2].vert_loc[:])
+
+            # Curve generation
+            edge_type = cs.ecustom[i].edge_type
+            if edge_type == 'SPL':
+                print(f"[draw_p] Generating Spline for edge {i}")
+                curve_points = generate_catmull_rom_curve(100, vert_locs)
+            elif edge_type == 'ARC':
+                print(f"[draw_p] Generating Arc for edge {i}")
+                curve_points = generate_arc_curve(100, vert_locs)
+            elif edge_type == 'PLY':
+                curve_points = vert_locs
+            elif edge_type == 'BSPL':
+                curve_points = generate_bspline_curve(100, vert_locs)
+            else:
+                print(f"[draw_p] Unknown edge type '{edge_type}'")
+                continue
+
+            # Store the generated curve
+            verts_data[i] = curve_points
+
+            # Register a new draw handler
+            handler = bpy.types.SpaceView3D.draw_handler_add(draw_edge_viewport, (i,), 'WINDOW', 'POST_VIEW')
+            draw_handlers[i] = handler
+        
+        except Exception as e:
+            print(f"[draw_p] Exception while processing edge {i}: {e}")
+
+def draw_edge_viewport(index):
+    edge_data = get_edge_draw_data()
+    verts_data = edge_data["verts"]
+    verts_t=verts_data[index]
+
+    if not verts_t:
+        return
     
-        if (len(cs.ecustom[i].vert_collection) == 0):
-            break
-
-        verts[i] = []
-        for j in range(len(cs.ecustom[i].vert_collection)):
-            ax = bpy.data.objects[f"{cs.ecustom[i].name}0{j+1}"]
-            verts[i].append(ax.location)
-        lin1 = []
-
-        _a = cs.ecustom[i].vc[0].vert_loc[:]
-        verts[i].insert(0, _a)
-        _a = cs.ecustom[i].vc[2].vert_loc[:]
-        verts[i].append(_a)
-
-        _temp = len(verts[i])
-        for k in range(_temp):
-            lin1.append(int(k*100/(_temp -1 )))
-        
-        # print(f"------> {lin1}")
-        # print(f"------> {verts[i]}")
-        # cubic_spline = CubicSpline(lin1, verts[i])
-        # print(f"------> {cs.ecustom[i].edge_type}")
-        curve_p = []
-
-        # This Piece of code is to be implemented when there is point generating alorithms for each edge type
-        if cs.ecustom[i].edge_type == 'SPL':
-            print("Using Spline Gen")
-            curve_p = generate_catmull_rom_curve(100, verts[i])
-        elif cs.ecustom[i].edge_type == 'ARC':
-            print("Using ARC Gen")
-            curve_p = generate_arc_curve(100, verts[i])
-        elif cs.ecustom[i].edge_type == 'PLY':
-            curve_p = verts[i]
-        elif cs.ecustom[i].edge_type == 'BSPL':
-            curve_p = generate_bspline_curve(100, verts[i])
-        
-        # curve_p = generate_catmull_rom_curve(100, verts[i]) # To be replaced with previous code block once all spline generating algorithms are implemented 
-
-        # print(f"------> {catmull_p}")
-
-        # lin = []
-        # lin = np.linspace(0, 100, 101)
-        # verts[i] = [i for i in catmull_p(lin)]
-        verts[i] = curve_p
-
-        a[i] = bpy.types.SpaceView3D.draw_handler_add(draw_edge_viewport, ((verts[i], i)), 'WINDOW', 'POST_VIEW')
-
-def draw_edge_viewport(verts, index):
     try:
         curr_spline = bpy.context.scene.ecustom[index]
     except Exception as e:
@@ -317,10 +550,9 @@ def draw_edge_viewport(verts, index):
     
     shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
     # bgl.glLineWidth(curr_spline.size)
-
     col = (curr_spline.color[0], curr_spline.color[1], curr_spline.color[2], curr_spline.color[3])
 
-    batch = batch_for_shader(shader, 'LINE_STRIP', {'pos': verts})
+    batch = batch_for_shader(shader, 'LINE_STRIP', {'pos': verts_t})
 
     gpu.state.depth_test_set("LESS_EQUAL")
 
@@ -330,7 +562,7 @@ def draw_edge_viewport(verts, index):
     shader.bind()
     
     shader.uniform_float('color', col)
-    
+
     batch.draw(shader)
 
     gpu.state.blend_set("NONE")

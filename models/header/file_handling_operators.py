@@ -59,10 +59,10 @@ class new_case_prompt:
         r2c2.scale_y = 0.56
 
         row3 = layout.row()
-        row3spt = row3.split(factor = 0.3)
+        r3spt = row3.split(factor = 0.3)
         
-        r3c1 = row3spt.row()
-        r3c2 = row3spt.row() 
+        r3c1 = r3spt.row()
+        r3c2 = r3spt.row() 
         
         r3c1.label(text="Meshing Tool")
         r3c2.prop(cs, "prompt_meshing_tool", expand=True)
@@ -161,46 +161,54 @@ class VNT_OT_select_mesh_filepath(Operator, ExportHelper):
     center_x: IntProperty()
     center_y: IntProperty()
     check: BoolProperty(default=False)
-    is_dir: BoolProperty(default=False) #used to check if selected path is a directory
+    is_dir: BoolProperty(default=False)  # Used to check if selected path is a directory
+
+    @classmethod
+    def poll(cls, context):
+        """Ensure the operator can be executed."""
+        return context.scene is not None
 
     def error_msg(self, layout):
+        """Display an error message if the selected path is not a directory."""
         row = layout.row()
         row.alignment = 'CENTER'
-        row.label(text="Selected path is not a directory", icon = "ERROR")
+        row.label(text="Selected path is not a directory", icon="ERROR")
 
     def draw(self, context):
+        """Draw the UI for the operator."""
         layout = self.layout
-        getattr(new_case_prompt(), "draw")(layout, context) if self.is_dir == True else self.error_msg(layout)
+        if self.is_dir:
+            new_case_prompt().draw(layout, context)
+        else:
+            self.error_msg(layout)
 
     def execute(self, context):
         context.scene.row_en = True
         if self.check == True:
-
             if os.path.isdir(str(Path(self.properties.filepath))):
                 self.is_dir = True
                 context.scene.mesh_dict_path = str(Path(self.properties.filepath))
-
             else:
                 self.is_dir = False
                 context.scene.mesh_dict_path = ""
                 self.report({'INFO'}, 'Select a directory.')
-
             bpy.context.window.cursor_warp(self.center_x, self.center_y)
             self.check = False
-            return context.window_manager.invoke_props_dialog(self, width=500)
-
-        else:
-            getattr(new_case_prompt(), "execute")(self, context)
             return {'FINISHED'}
+        else:
+            self.is_dir = False
+            cs.mesh_dict_path = ""
+            print("Invalid directory selected.")
+            self.report({'INFO'}, 'Select a valid directory.')
+        return {'FINISHED'}
 
     def invoke(self, context, event):
+        """Handle the invocation of the operator."""
         self.center_x = event.mouse_x
         self.center_y = event.mouse_y
-
         context.scene.row_en = False
         context.window_manager.fileselect_add(self)
         self.check = True
-    
         return {'RUNNING_MODAL'}
 
 
@@ -349,3 +357,37 @@ class VNT_OT_deactivate_mesh_file_item(Operator):
                         
             
         return{'FINISHED'}
+
+
+class VNT_OT_stl_browse(bpy.types.Operator):
+    bl_idname = "vnt.stl_browse"
+    bl_label = "Browse STL File"
+
+    filepath: StringProperty(subtype="FILE_PATH")
+    
+    def execute(self, context):
+        context.scene.stl_file = self.filepath
+        context.scene.stl_file_name = os.path.basename(self.filepath)
+        
+        # Set default custom name (without extension) if it's empty
+        if not context.scene.stl_custom_name:
+            context.scene.stl_custom_name = os.path.splitext(os.path.basename(self.filepath))[0]
+            
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+class VNT_OT_import_stl_geometry(bpy.types.Operator):
+    bl_idname = "vnt.import_stl_geometry"
+    bl_label = "Import STL Geometry"
+    
+    def execute(self, context):
+        filepath = context.scene.stl_file
+        if filepath:
+            bpy.ops.import_mesh.stl(filepath=filepath)
+            return {'FINISHED'}
+        else:
+            self.report({'ERROR'}, "No file selected")
+            return {'CANCELLED'}

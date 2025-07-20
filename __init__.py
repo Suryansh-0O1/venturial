@@ -11,6 +11,7 @@ bl_info = {
 
 import bpy, bmesh, os
 import bpy.utils.previews
+from .dependencies import install_dependencies
 
 from bpy.utils import register_class, unregister_class
 
@@ -59,9 +60,16 @@ from venturial.views.schemas.UIList_schemas import *
 from venturial.views.user_mode_view import VNT_PT_usermodeview
 from venturial.views.header.view import *
 from venturial.views.mainpanel.meshing_tools.blockmesh import VNT_PT_cell_location
+from venturial.views.mainpanel.meshing_tools.snappyhexmesh import (
+    VNT_OT_create_new_geometry,
+    VNT_OT_delete_geometry,
+    VNT_OT_export_stl_geometry,
+    VNT_OT_generate_snappyhex_dict, 
+)
 from venturial.views.mainpanel.view import (
     VNT_OT_active_project_indicator,
     VNT_OT_list_category,
+    get_mainpanel_categories,
 )
 from venturial.views.mainpanel.tutorials import VNT_PT_filter_tutorials
 from venturial.views.mainpanel.recents import VNT_PT_filter_recents
@@ -78,7 +86,148 @@ from venturial.lib.global_properties import VNT_global_properties_collection, VN
 
 from venturial.models.edges_panel_operators import *
 
+# Import castellated mesh classes directly
+from venturial.models.snappyhexmesh.castellated_operators import (
+    CastellatedFeature,
+    RefinementRegion,
+    PatchInfo,
+    RefinementSurfaceRegion,
+    RefinementSurface,
+    VNT_OT_add_feature,
+    VNT_OT_browse_feature_file,
+    VNT_OT_remove_feature,
+    VNT_OT_add_refinement_surface, 
+    VNT_OT_browse_surface_file,
+    VNT_OT_remove_refinement_surface,
+    VNT_OT_add_surface_region,
+    VNT_OT_remove_surface_region,
+    VNT_OT_add_refinement_region,
+    VNT_OT_remove_refinement_region,
+    CAST_UL_features_list,
+    CAST_UL_refinement_surfaces,
+    CAST_UL_refinement_regions,
+    DistanceLevelPair,
+    VNT_OT_add_distance_level_pair,
+    VNT_OT_remove_distance_level_pair,
+    CAST_UL_distance_level_pairs,
+    VNT_OT_add_feature_distance_level_pair,
+    VNT_OT_remove_feature_distance_level_pair,
+    CAST_UL_feature_distance_level_pairs,
+    CAST_UL_surface_regions
+)
+
+from venturial.models.snappyhexmesh.snap_operators import (
+    SnapControlsProperties,
+    VNT_OT_select_unselect_allsnap
+)
+
+from venturial.models.snappyhexmesh.layer_operators import (
+    LayerAdditionProperties, 
+    LayerPatchSettings,
+    VNT_OT_add_layer_patch,
+    VNT_OT_remove_layer_patch,
+    VNT_OT_duplicate_layer_patch,
+    VNT_OT_import_boundary_patches,
+    LAYER_UL_patches_list,
+    VNT_OT_configure_layer_settings
+)
+from venturial.models.snappyhexmesh.mesh_quality_operators import (
+    MeshQualityProperties,
+    RelaxedMeshQualityProperties,
+    VNT_OT_select_mesh_quality_dict,
+    VNT_OT_copy_relaxed_settings
+)
+
+from venturial.models.snappyhexmesh.geometry_operators import (
+    GeometryItem, 
+    GEOMETRY_UL_items, 
+    geometry_index_update, 
+    StlRegionItem,
+    STL_UL_regions,
+    VNT_OT_add_stl_region,
+    VNT_OT_remove_stl_region
+)
+
+from venturial.models.snappyhexmesh.tooltip_updater import register as register_tooltips
+
+# Import castellated mesh classes directly
+from venturial.models.snappyhexmesh.castellated_operators import (
+    CastellatedFeature,
+    RefinementRegion,
+    PatchInfo,
+    RefinementSurfaceRegion,
+    RefinementSurface,
+    VNT_OT_add_feature,
+    VNT_OT_browse_feature_file,
+    VNT_OT_remove_feature,
+    VNT_OT_add_refinement_surface, 
+    VNT_OT_browse_surface_file,
+    VNT_OT_remove_refinement_surface,
+    VNT_OT_add_surface_region,
+    VNT_OT_remove_surface_region,
+    VNT_OT_add_refinement_region,
+    VNT_OT_remove_refinement_region,
+    CAST_UL_features_list,
+    CAST_UL_refinement_surfaces,
+    CAST_UL_refinement_regions,
+    DistanceLevelPair,
+    VNT_OT_add_distance_level_pair,
+    VNT_OT_remove_distance_level_pair,
+    CAST_UL_distance_level_pairs,
+    VNT_OT_add_feature_distance_level_pair,
+    VNT_OT_remove_feature_distance_level_pair,
+    CAST_UL_feature_distance_level_pairs,
+    CAST_UL_surface_regions
+)
+
+from venturial.models.snappyhexmesh.snap_operators import (
+    SnapControlsProperties,
+    VNT_OT_select_unselect_allsnap
+)
+
+from venturial.models.snappyhexmesh.layer_operators import (
+    LayerAdditionProperties, 
+    LayerPatchSettings,
+    VNT_OT_add_layer_patch,
+    VNT_OT_remove_layer_patch,
+    VNT_OT_duplicate_layer_patch,
+    VNT_OT_import_boundary_patches,
+    LAYER_UL_patches_list,
+    VNT_OT_configure_layer_settings
+)
+from venturial.models.snappyhexmesh.mesh_quality_operators import (
+    MeshQualityProperties,
+    RelaxedMeshQualityProperties,
+    VNT_OT_select_mesh_quality_dict,
+    VNT_OT_copy_relaxed_settings
+)
+
+from venturial.models.snappyhexmesh.geometry_operators import (
+    GeometryItem, 
+    GEOMETRY_UL_items, 
+    geometry_index_update, 
+    StlRegionItem,
+    STL_UL_regions,
+    VNT_OT_add_stl_region,
+    VNT_OT_remove_stl_region
+)
+
+from venturial.models.snappyhexmesh.tooltip_updater import register as register_tooltips
+
+Ven_node_enabled = False
+try:
+    if install_dependencies():
+        Ven_node_enabled = True
+except Exception as e:
+    print("ERROR: Dependency installation failed.")
+    Ven_node_enabled = False
+
+if Ven_node_enabled:
+    from .models import venturial_nodes
+
 classes = (
+    VNT_OT_select_edge,
+    VNT_ecustom_edge_obj,
     VNT_user_preferences_collection,
     VNT_OT_save_preferences,
     VNT_OT_reset_preferences,
@@ -90,6 +239,9 @@ classes = (
     VNT_OT_open_case,
     VNT_OT_delete_mesh_file_items,
     VNT_OT_deactivate_mesh_file_item,
+    VNT_OT_stl_browse,
+    VNT_OT_import_stl_geometry,
+    VNT_OT_export_stl_geometry,
     VNT_OT_dev_mode,
     VNT_OT_dev_tools,
     VNT_OT_user_general_settings,
@@ -111,6 +263,7 @@ classes = (
     VNT_OT_release_notes,
     VNT_PT_usermodeview,
     VNT_OT_mainpanel_layout,
+    VNT_OT_delete_geometry,
     fileitemproperties,
     recent_item_properties,
     tutorialitemproperties,
@@ -161,7 +314,7 @@ classes = (
     VNT_OT_merge_faces,
     VNT_OT_merge_faces_delete,
     # VNT_OT_generate_edge,
-    # VNT_OT_edit_edge,
+    # VNT_OT_edit_edge, 
     # VNT_OT_destroy_edge,
     VNT_OT_more_tutorials_viewer,
     VNT_OT_tutorial_viewer,
@@ -173,10 +326,78 @@ classes = (
     VNT_OT_new_vert,
     VNT_OT_remove_edge,
     VNT_OT_remove_vert,
+    VNT_OT_create_new_geometry,
+    # Add castellated mesh classes
+    CastellatedFeature,
+    RefinementRegion,
+    PatchInfo,
+    RefinementSurfaceRegion,
+    RefinementSurface,
+    VNT_OT_add_feature,
+    VNT_OT_browse_feature_file,
+    VNT_OT_remove_feature,
+    VNT_OT_add_refinement_surface,
+    VNT_OT_browse_surface_file,
+    VNT_OT_remove_refinement_surface,
+    VNT_OT_add_surface_region,
+    VNT_OT_remove_surface_region,
+    VNT_OT_add_refinement_region,
+    VNT_OT_remove_refinement_region,
+    CAST_UL_features_list,
+    CAST_UL_refinement_surfaces,
+    CAST_UL_refinement_regions,
+    DistanceLevelPair,
+    VNT_OT_add_distance_level_pair,
+    VNT_OT_remove_distance_level_pair,
+    CAST_UL_distance_level_pairs,
+    VNT_OT_add_feature_distance_level_pair,
+    VNT_OT_remove_feature_distance_level_pair,
+    CAST_UL_feature_distance_level_pairs,
+    CAST_UL_surface_regions,
+    
+    SnapControlsProperties,
+    VNT_OT_select_unselect_allsnap,
+    LayerAdditionProperties,
+    LayerPatchSettings,
+    VNT_OT_add_layer_patch,
+    VNT_OT_remove_layer_patch,
+    VNT_OT_duplicate_layer_patch,
+    VNT_OT_import_boundary_patches,
+    VNT_OT_configure_layer_settings,
+    LAYER_UL_patches_list,
+    MeshQualityProperties,
+    RelaxedMeshQualityProperties,
+    VNT_OT_select_mesh_quality_dict,
+    VNT_OT_copy_relaxed_settings,
+    VNT_OT_generate_snappyhex_dict,
+    StlRegionItem,
+    STL_UL_regions,
+    VNT_OT_add_stl_region,
+    VNT_OT_remove_stl_region,
 )
+def load_post_handler():
+    """
+    Handler that resets the draw handlers for edges after a .blend file is loaded.
+    """
+    # Clear any existing draw handler references in our scene data.
+    edge_data = get_edge_draw_data()
+    edge_data["draw_handlers"].clear()
+    edge_data["verts"].clear()
 
+    # Re-run the drawing function for each edge.
+    scn = bpy.context.scene
+    for i in range(len(scn.ecustom)):
+        try:
+            # Assume draw_p is imported from edges_panel_operators
+            from .edges_panel_operators import draw_p
+            draw_p(None, bpy.context)
+        except Exception as e:
+            print(f"Error initializing draw handler for edge {i}: {e}")
 
 def register():
+    print("--- Registering Venturial Nodes Module ---")
+    # 1. Install dependencies (must run before imports that depend on them)
+    
 
     register_custom_icon(
         "venturial_logo", "/venturial/icons/custom_icons/venturial_logo.png"
@@ -198,6 +419,205 @@ def register():
     for cls in classes:
         register_class(cls)
 
+    bpy.types.Scene.mesh_quality = PointerProperty(
+        type=MeshQualityProperties,
+        name="Mesh Quality Settings"
+    )
+    bpy.types.Scene.relaxed_mesh_quality = PointerProperty(
+        type=RelaxedMeshQualityProperties,
+        name="Relaxed Mesh Quality Settings"
+    )
+    print("Registered mesh_quality and relaxed_mesh_quality property groups:", hasattr(bpy.types.Scene, "relaxed_mesh_quality"))
+    
+    # Fix: Access RefinementRegion directly instead of through bpy.types
+    from venturial.models.snappyhexmesh.castellated_operators import (
+        RefinementRegion,
+        CastellatedFeature,
+        DistanceLevelPair
+    )
+    
+    # feature-level pairs
+    CastellatedFeature.distance_level_pairs = CollectionProperty(
+        type=DistanceLevelPair,
+        name="Distance-Level Pairs"
+    )
+    CastellatedFeature.distance_level_pairs_index = IntProperty(default=0)
+
+    # region-level pairs (already present)
+    RefinementRegion.distance_level_pairs = CollectionProperty(
+        type=DistanceLevelPair,
+        name="Distance-Level Pairs"
+    )
+    RefinementRegion.distance_level_pairs_index = IntProperty(default=0)
+    
+    # Global gap level increment property
+    bpy.types.Scene.use_gap_level = BoolProperty(
+        name="Use Gap Level Increment",
+        description="Use gap level increment for small gaps between surfaces",
+        default=False
+    )
+    
+    bpy.types.Scene.gap_level_increment = IntProperty(
+        name="Gap Level Increment",
+        description="Additional refinement level for cells in narrow gaps",
+        default=2,
+        min=0,
+        max=10
+    )
+    
+    # Additional castellated mesh properties for the new UI sections
+    
+    # Feature angle properties
+    bpy.types.Scene.resolveFeatureAngle = FloatProperty(
+        name="Resolve Feature Angle",
+        description="Angle for feature resolution",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.planarAngle = FloatProperty(
+        name="Planar Angle",
+        description="Angle for determining planar features",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    # Refinement region properties for RefinementRegion class
+    RefinementRegion.name = StringProperty(
+        name="Name",
+        description="Name of the refinement region",
+        default="box"
+    )
+    
+    RefinementRegion.source_type = EnumProperty(
+        name="Source Type",
+        description="Type of geometry source",
+        items=[
+            ('geometry', "Geometry Object", "Use a geometry object from the scene"),
+            ('stl', "STL File", "Use an STL file")
+        ],
+        default='geometry'
+    )
+    
+    RefinementRegion.geometry_object = StringProperty(
+        name="Geometry Object",
+        description="Name of the geometry object to use"
+    )
+    
+    RefinementRegion.mode = EnumProperty(
+        name="Mode",
+        description="Refinement mode",
+        items=[
+            ('inside', "Inside", "Refine cells inside the region"),
+            ('distance', "Distance", "Refine cells within specified distance of the region")
+        ],
+        default='inside'
+    )
+    
+    RefinementRegion.level = IntProperty(
+        name="Level",
+        description="Refinement level for inside mode",
+        default=1,
+        min=0
+    )
+    
+    RefinementRegion.use_advanced_distance = BoolProperty(
+        name="Multiple Distance Levels",
+        description="Use multiple distance-level pairs for more complex refinement",
+        default=False
+    )
+    
+    RefinementRegion.distance = FloatProperty(
+        name="Distance",
+        description="Distance from surface for refinement",
+        default=1.0,
+        min=0.0
+    )
+    
+    RefinementRegion.level_at_distance = IntProperty(
+        name="Level",
+        description="Refinement level at the specified distance",
+        default=1,
+        min=0
+    )
+    
+    # Location in mesh coordinates
+    bpy.types.Scene.locationInMeshX = FloatProperty(
+        name="X",
+        description="X coordinate of location in mesh point",
+        default=-100.0
+    )
+    
+    bpy.types.Scene.locationInMeshY = FloatProperty(
+        name="Y",
+        description="Y coordinate of location in mesh point",
+        default=0.0
+    )
+    
+    bpy.types.Scene.locationInMeshZ = FloatProperty(
+        name="Z",
+        description="Z coordinate of location in mesh point",
+        default=50.0
+    )
+    
+    bpy.types.Scene.allowFreeStandingZoneFaces = BoolProperty(
+        name="Allow Free Standing Zone Faces",
+        description="Allow free-standing zone faces",
+        default=True
+    )
+    
+    # Advanced options
+    bpy.types.Scene.handleSnapProblems = BoolProperty(
+        name="Handle Snap Problems",
+        description="Do not remove cells likely to give snapping problems",
+        default=False
+    )
+    
+    bpy.types.Scene.useTopologicalSnapDetection = BoolProperty(
+        name="Use Topological Snap Detection",
+        description="Use topological test for cells to-be-squashed (disable to use geometric test)",
+        default=True
+    )
+    
+    # Collection to store refinement regions
+    bpy.types.Scene.cast_refinement_regions = CollectionProperty(
+        type=RefinementRegion,
+        name="Refinement Regions"
+    )
+    
+    bpy.types.Scene.cast_refinement_regions_index = IntProperty(default=0)
+    
+    # Add this in the register function after the other layer-related properties
+    bpy.types.Scene.show_layer_advanced = BoolProperty(
+        name="Show Advanced Layer Settings",
+        default=False
+    )
+    
+    bpy.types.Scene.layer_strategy = EnumProperty(
+        name="Layer Strategy",
+        description="Strategy for layer addition",
+        items=[
+            ('standard', "Standard", "Standard layer addition approach"),
+            ('conservative', "Conservative", "More cautious approach for complex geometry"),
+            ('aggressive', "Aggressive", "Try harder to add layers even in complex areas")
+        ],
+        default='standard'
+    )
+    
+    # After other layer addition properties
+    bpy.types.Scene.detectExtrusionIsland = BoolProperty(
+        name="Detect Extrusion Islands",
+        description="Detect and extrude islands of cells for better layer coverage",
+        default=True
+    )
+    
+    bpy.types.Scene.stl_file = StringProperty(name="STL File", default="")
+    bpy.types.Scene.stl_file_name = StringProperty(name="STL File Name", default="")
+    bpy.types.Scene.stl_custom_name = StringProperty(name="Custom STL Name", default="")
+    bpy.types.Scene.stl_regions = CollectionProperty(type=StlRegionItem)
+    bpy.types.Scene.stl_regions_index = IntProperty(default=0)
     bpy.types.Scene.search_tuts = StringProperty(default="Search Tutorials")
     bpy.types.Scene.search_recents = StringProperty(default="Search Recents")
     bpy.types.Scene.edit_dict_name = BoolProperty(default=True)
@@ -234,16 +654,8 @@ def register():
     )
 
     bpy.types.Scene.mainpanel_categories = EnumProperty(
-        items=[
-            ("Explore", "Explore", ""),
-            ("Geometry", "Geometry", ""),
-            ("Edges", "Edges", ""),
-            #  ('Step Controls', 'Steps Controls', ''),
-            ("Boundary", "Boundary", ""),
-            ("Visualize", "Visualize", ""),
-            ("Run", "Run", ""),
-        ],
-        default="Explore",
+        items=get_mainpanel_categories,
+        default=0
     )
 
     bpy.types.Scene.cellShapes = EnumProperty(
@@ -363,8 +775,10 @@ def register():
     bpy.types.Scene.fmcustom = CollectionProperty(type=VNT_global_properties_collection) # for face merging
     bpy.types.Scene.fmcustom_index = IntProperty()
 
+    bpy.types.Scene.ecustom_edge_obj = CollectionProperty(type=VNT_ecustom_edge_obj)
     bpy.types.Scene.ecustom = CollectionProperty(type=VNT_global_properties_collection_edge_verts) # for edges
-    bpy.types.Scene.ecustom_index = IntProperty()
+    bpy.types.Scene.ecustom_index = IntProperty(update=update_selected_edge)
+    bpy.types.Scene.last_ecustom_index = IntProperty(default=-1)
 
     bpy.types.Scene.vert_index = IntProperty(name="Vertex Index", default=0)
 
@@ -381,6 +795,18 @@ def register():
             ("BSPL", "BSpline", "BSpline type of edge"),
         ],
         default="ARC",
+    )
+
+    bpy.types.Scene.edge_alignment = EnumProperty(
+        items=[
+            ("X", "X Axis", "Align edge along X axis"),
+            ("-X", "-X Axis", "Align edge along -X axis"),
+            ("Y", "Y Axis", "Align edge along Y axis"),
+            ("-Y", "-Y Axis", "Align edge along -Y axis"),
+            ("Z", "Z Axis", "Align edge along Z axis"),
+            ("-Z", "-Z Axis", "Align edge along -Z axis"),
+        ],
+        default="X",
     )
 
     bpy.types.Scene.cnt = IntProperty()
@@ -513,14 +939,529 @@ def register():
         items=get_active_projects,
     )
 
+    bpy.types.Scene.geometry_items = CollectionProperty(type=fileitemproperties)
+    bpy.types.Scene.geometry_items_index = IntProperty(
+        name="Geometry Items Index",
+        default=0,
+        update=geometry_index_update
+    )
+
+    # Main SnappyHexMesh controls
+    bpy.types.Scene.castellatedMesh = BoolProperty(name="Castellated Mesh", default=False)
+    bpy.types.Scene.snap = BoolProperty(name="Snap", default=False)
+    bpy.types.Scene.addLayers = BoolProperty(name="Add Layers", default=False)
+
+    # Castellated mesh controls
+    bpy.types.Scene.maxLocalCells = IntProperty(
+        name="Max Local Cells",
+        description="Maximum local cells for castellated mesh",
+        default=100000,
+        min=1000
+    )
+    
+    bpy.types.Scene.maxGlobalCells = IntProperty(
+        name="Max Global Cells",
+        description="Maximum global cells for castellated mesh",
+        default=2000000,
+        min=1000
+    )
+    
+    bpy.types.Scene.minRefinementCells = IntProperty(
+        name="Min Refinement Cells",
+        description="Minimum cells to refine",
+        default=0,
+        min=0
+    )
+        
+    bpy.types.Scene.maxLoadUnbalance = FloatProperty(
+        name="Max Load Unbalance",
+        description="Maximum load unbalance factor",
+        default=0.1,
+        min=0.0,
+        max=1.0
+    )
+    
+    bpy.types.Scene.nCellsBetweenLevels = IntProperty(
+        name="Cells Between Levels",
+        description="Number of buffer cells between refinement levels",
+        default=2,
+        min=1
+    )
+    
+    bpy.types.Scene.resolveFeatureAngle = FloatProperty(
+        name="Resolve Feature Angle",
+        description="Angle for feature resolution",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.planarAngle = FloatProperty(
+        name="Planar Angle",
+        description="Angle for determining planar features",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.locationInMeshX = FloatProperty(
+        name="X",
+        description="X coordinate of location in mesh point",
+        default=5.0
+    )
+    
+    bpy.types.Scene.locationInMeshY = FloatProperty(
+        name="Y",
+        description="Y coordinate of location in mesh point",
+        default=0.28
+    )
+    
+    bpy.types.Scene.locationInMeshZ = FloatProperty(
+        name="Z",
+        description="Z coordinate of location in mesh point",
+        default=0.43
+    )
+    
+    bpy.types.Scene.allowFreeStandingZoneFaces = BoolProperty(
+        name="Allow Free Standing Zone Faces",
+        description="Allow free-standing zone faces",
+        default=True
+    )
+    
+    bpy.types.Scene.cast_features = CollectionProperty(
+        type=CastellatedFeature,
+        name="Features"
+    )
+    
+    bpy.types.Scene.cast_features_index = IntProperty(default=0)
+    
+    bpy.types.Scene.cast_refinement_surfaces = CollectionProperty(
+        type=RefinementSurface,
+        name="Refinement Surfaces"
+    )
+    
+    bpy.types.Scene.cast_refinement_surfaces_index = IntProperty(default=0)
+    
+    bpy.types.Scene.cast_refinement_regions = CollectionProperty(
+        type=RefinementRegion,
+        name="Refinement Regions"
+    )
+    
+    bpy.types.Scene.cast_refinement_regions_index = IntProperty(default=0)
+    
+    bpy.types.Scene.nSmoothPatch = IntProperty(
+        name="Smooth Patch Iterations",
+        description="Number of patch smoothing iterations before finding correspondence to surface",
+        default=3,
+        min=0
+    )
+    
+    bpy.types.Scene.tolerance = FloatProperty(
+        name="Tolerance",
+        description="Maximum relative distance for points to be attracted by surface",
+        default=2.0,
+        min=0.0
+    )
+    
+    bpy.types.Scene.nSolveIter = IntProperty(
+        name="Solve Iterations",
+        description="Number of mesh displacement relaxation iterations",
+        default=30,
+        min=0
+    )
+    
+    bpy.types.Scene.nRelaxIter = IntProperty(
+        name="Relax Iterations",
+        description="Maximum number of snapping relaxation iterations",
+        default=5,
+        min=0
+    )
+    
+    bpy.types.Scene.useFeatureSnap = BoolProperty(
+        name="Use Feature Snapping",
+        description="Enable feature edge snapping",
+        default=True
+    )
+    
+    bpy.types.Scene.nFeatureSnapIter = IntProperty(
+        name="Feature Snap Iterations",
+        description="Number of feature edge snapping iterations",
+        default=10,
+        min=0
+    )
+    
+    bpy.types.Scene.implicitFeatureSnap = BoolProperty(
+        name="Implicit Feature Snap",
+        description="Detect features by sampling the surface",
+        default=False
+    )
+    
+    bpy.types.Scene.explicitFeatureSnap = BoolProperty(
+        name="Explicit Feature Snap",
+        description="Use castellatedMeshControls features",
+        default=True
+    )
+    
+    bpy.types.Scene.multiRegionFeatureSnap = BoolProperty(
+        name="Multi-region Feature Snap",
+        description="Detect features between multiple surfaces",
+        default=False
+    )
+    
+    # Layer addition properties
+    bpy.types.Scene.relativeSizes = BoolProperty(
+        name="Relative Sizes",
+        description="Are thickness parameters relative to cell size or absolute",
+        default=True
+    )
+    
+    bpy.types.Scene.thickness_mode = EnumProperty(
+        name="Thickness Mode",
+        description="Method for specifying layer thickness",
+        items=[
+            ('expansion_final', "Expansion + Final Layer", "Use expansion ratio and final layer thickness"),
+            ('expansion_first', "Expansion + First Layer", "Use expansion ratio and first layer thickness"),
+            ('overall_first', "Overall + First Layer", "Use overall thickness and first layer thickness"),
+            ('overall_final', "Overall + Final Layer", "Use overall thickness and final layer thickness"),
+            ('overall_expansion', "Overall + Expansion", "Use overall thickness and expansion ratio")
+        ],
+        default='expansion_final'
+    )
+    
+    bpy.types.Scene.expansionRatio = FloatProperty(
+        name="Expansion Ratio",
+        description="Expansion factor for layer mesh",
+        default=1.0,
+        min=1.0,
+        max=10.0
+    )
+    
+    bpy.types.Scene.finalLayerThickness = FloatProperty(
+        name="Final Layer Thickness",
+        description="Thickness of layer furthest from wall",
+        default=0.3,
+        min=0.001
+    )
+    
+    bpy.types.Scene.firstLayerThickness = FloatProperty(
+        name="First Layer Thickness",
+        description="Thickness of layer next to wall",
+        default=0.3,
+        min=0.001
+    )
+    
+    bpy.types.Scene.overallThickness = FloatProperty(
+        name="Overall Thickness",
+        description="Total thickness of all layers",
+        default=0.5,
+        min=0.001
+    )
+    
+    bpy.types.Scene.minThickness = FloatProperty(
+        name="Minimum Thickness",
+        description="Minimum thickness of total layers",
+        default=0.25,
+        min=0.0
+    )
+    
+    bpy.types.Scene.featureAngle = FloatProperty(
+        name="Feature Angle",
+        description="Angle at which to not extrude surface",
+        default=130.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.nGrow = IntProperty(
+        name="Grow Layers",
+        description="Number of layers of connected faces to grow",
+        default=0,
+        min=0
+    )
+    
+    bpy.types.Scene.maxFaceThicknessRatio = FloatProperty(
+        name="Max Face Thickness Ratio",
+        description="Stop layer growth on highly warped cells",
+        default=0.5,
+        min=0.0,
+        max=1.0
+    )
+    
+    bpy.types.Scene.nSmoothSurfaceNormals = IntProperty(
+        name="Smooth Surface Normals",
+        description="Smoothing iterations for surface normals",
+        default=1,
+        min=0
+    )
+    
+    bpy.types.Scene.nSmoothThickness = IntProperty(
+        name="Smooth Thickness",
+        description="Iterations to smooth layer thickness",
+        default=10,
+        min=0
+    )
+    
+    bpy.types.Scene.minMedialAxisAngle = FloatProperty(
+        name="Min Medial Axis Angle",
+        description="Angle used to pick up medial axis points",
+        default=90.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.maxThicknessToMedialRatio = FloatProperty(
+        name="Max Thickness to Medial Ratio",
+        description="Reduce growth where thickness to medial distance is large",
+        default=0.3,
+        min=0.0,
+        max=1.0
+    )
+    
+    bpy.types.Scene.nSmoothNormals = IntProperty(
+        name="Smooth Normals",
+        description="Smoothing iterations for mesh movement direction",
+        default=3,
+        min=0
+    )
+    
+    bpy.types.Scene.slipFeatureAngle = FloatProperty(
+        name="Slip Feature Angle",
+        description="Angle above which mesh can slip at non-patched sides",
+        default=30.0,
+        min=0.0,
+        max=180.0
+    )
+    
+    bpy.types.Scene.layerRelaxIter = IntProperty(
+        name="Layer Relax Iterations",
+        description="Maximum snapping relaxation iterations",
+        default=5,
+        min=0
+    )
+    
+    bpy.types.Scene.nBufferCellsNoExtrude = IntProperty(
+        name="Buffer Cells No Extrude",
+        description="Buffer region for new layer terminations",
+        default=0,
+        min=0
+    )
+    
+    bpy.types.Scene.nLayerIter = IntProperty(
+        name="Layer Iterations",
+        description="Max number of layer addition iterations",
+        default=50,
+        min=1
+    )
+    
+    bpy.types.Scene.nRelaxedIter = IntProperty(
+        name="Relaxed Iterations",
+        description="Iterations after which relaxed mesh quality controls are used",
+        default=20,
+        min=0
+    )
+    
+    bpy.types.Scene.additionalReporting = BoolProperty(
+        name="Additional Reporting",
+        description="Report problematic face centers",
+        default=False
+    )
+    
+    bpy.types.Scene.layer_patches = CollectionProperty(
+        type=LayerPatchSettings,
+        name="Layer Patches"
+    )
+    
+    bpy.types.Scene.layer_patches_index = IntProperty(default=0)
+    
+    # Mesh quality properties
+    bpy.types.Scene.includeMeshQualityDict = BoolProperty(
+        name="Include Mesh Quality Dict",
+        description="Include external mesh quality dictionary file",
+        default=True
+    )
+    
+    bpy.types.Scene.meshQualityDictPath = StringProperty(
+        name="Mesh Quality Dict Path",
+        description="Path to external mesh quality dictionary file",
+        default="meshQualityDict"
+    )
+    
+    bpy.types.Scene.snappy_dict_preview = StringProperty(default="")
+    
+    bpy.types.Scene.current_surface_tab = EnumProperty(
+        name="Surface Settings",
+        description="Surface refinement settings tabs",
+        items=[
+            ('regions', "Regions", "Region-specific refinement settings"),
+            ('zones', "Zones", "Face and cell zone settings"),
+            ('advanced', "Advanced", "Advanced surface settings"),
+        ],
+        default='regions'
+    )
+    
+    # Advanced mesh quality toggle
+    bpy.types.Scene.show_advanced_quality = BoolProperty(
+        name="Show Advanced Quality Settings",
+        default=False
+    )
+    
+    # Add castellated tab property
+    bpy.types.Scene.castellated_tab = EnumProperty(
+        name="Settings",
+        description="Castellated mesh settings sections",
+        items=[
+            ('GENERAL', "General", "Basic parameters and general settings"),
+            ('FEATURES', "Features", "Feature edge refinement settings"),
+            ('SURFACES', "Surfaces", "Surface refinement settings"),
+            ('REGIONS', "Regions", "Region refinement settings"),
+            ('ADVANCED', "Advanced", "Advanced and feature angle settings"),
+            ('PREVIEW', "Preview", "Generated dictionary preview")
+        ],
+        default='GENERAL'
+    )
+    
+    # Add tab properties for snap, layer and quality sections
+    bpy.types.Scene.snap_tab = EnumProperty(
+        name="Settings",
+        description="Snap settings sections",
+        items=[
+            ('BASIC', "Basic", "Basic snap parameters"),
+            ('FEATURES', "Features", "Feature snapping settings"),
+            ('PREVIEW', "Preview", "Generated dictionary preview")
+        ],
+        default='BASIC'
+    )
+    
+    bpy.types.Scene.geometry_tab = EnumProperty(
+        name="Settings",
+        description="Geometry settings sections",
+        items=[
+            ('DEFINE', "Define", "Define geometry objects"),
+            ('PREVIEW', "Preview", "Preview geometry dictionary")
+        ],
+        default='DEFINE'
+    )
+    
+    bpy.types.Scene.layer_tab = EnumProperty(
+        name="Settings",
+        description="Layer addition settings sections",
+        items=[
+            ('BASIC', "Basic", "Basic layer parameters and thickness"),
+            ('FEATURES', "Features", "Feature handling settings"),
+            ('PATCHES', "Patches", "Patch-specific settings"),
+            ('ADVANCED', "Advanced", "Advanced layer settings"),
+            ('PREVIEW', "Preview", "Generated dictionary preview")
+        ],
+        default='BASIC'
+    )
+    
+    bpy.types.Scene.quality_tab = EnumProperty(
+        name="Settings",
+        description="Mesh quality settings sections",
+        items=[
+            ('DICT', "Dictionary", "External dictionary option"),
+            ('STANDARD', "Standard", "Primary quality constraints"),
+            ('ADVANCED', "Advanced", "Advanced quality settings"),
+            ('RELAXED', "Relaxed", "Relaxed quality settings"),
+            ('ERROR', "Error", "Error distribution settings"),
+            ('PREVIEW', "Preview", "Generated dictionary preview")
+        ],
+        default='STANDARD'
+    )
+    
+    # Add mergeTolerance property if it doesn't exist
+    bpy.types.Scene.mergeTolerance = FloatProperty(
+        name="Merge Tolerance",
+        description="Merge tolerance for the final mesh. Relative to the bounding box.",
+        default=1e-6,
+        min=1e-10,
+        max=0.1,
+        precision=10
+    )
+    
+    # Debug flags for dictionary
+    bpy.types.Scene.use_debug_flags = BoolProperty(
+        name="Enable Debug Output",
+        description="Enable debug output for troubleshooting mesh generation",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_mesh = BoolProperty(
+        name="Mesh",
+        description="Write intermediate meshes during the meshing process",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_intersections = BoolProperty(
+        name="Intersections",
+        description="Write current mesh intersections as .obj files",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_featureSeeds = BoolProperty(
+        name="Feature Seeds",
+        description="Write information about explicit feature edge refinement",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_attraction = BoolProperty(
+        name="Attraction",
+        description="Write attraction as .obj files",
+        default=False
+    )
+    
+    bpy.types.Scene.debugFlag_layerInfo = BoolProperty(
+        name="Layer Info",
+        description="Write information about layers",
+        default=False
+    )
+    
+    # Write flags for dictionary
+    bpy.types.Scene.writeFlag_scalarLevels = BoolProperty(
+        name="Scalar Levels",
+        description="Write volScalarField with cellLevel for postprocessing",
+        default=True
+    )
+    
+    bpy.types.Scene.writeFlag_layerSets = BoolProperty(
+        name="Layer Sets",
+        description="Write cellSets and faceSets of faces in layer",
+        default=False
+    )
+    
+    bpy.types.Scene.writeFlag_layerFields = BoolProperty(
+        name="Layer Fields",
+        description="Write volScalarField for layer coverage",
+        default=False
+    )
+    
+    # Update tooltips after all properties are registered
+    register_tooltips()
+    
+    # Register venturial_nodes
+    try:
+        venturial_nodes.register()
+        print("Venturial Nodes module registered successfully.")
+    except Exception as e:
+        print(f"Error registering Venturial Nodes module: {e}")
+
+
+
     bpy.app.handlers.load_factory_startup_post.append(add_tutorials_to_scene)
     bpy.app.handlers.load_factory_startup_post.append(add_recents_to_scene)
-
+    bpy.app.handlers.load_post.append(load_post_handler)
 
 def unregister():
 
+    from bpy.app.handlers import load_post
+    if load_post_handler in load_post:
+        load_post.remove(load_post_handler)
+        
     for cls in reversed(classes):
-        unregister_class(cls)
+        try:
+            unregister_class(cls)
+        except Exception as e:
+            print(f"Error unregistering {cls.__name__}: {e}")
 
     unregister_custom_icon(
         "venturial_logo", "/venturial/icons/custom_icons/venturial_logo.png"
@@ -541,51 +1482,62 @@ def unregister():
         "file-browser-2", "/venturial/icons/custom_icons/file-browser-2.png"
     )
 
-    del bpy.types.Scene.ui_category
-    del bpy.types.Scene.tool_type
-    del bpy.types.Scene.prompt_meshing_tool
-    del bpy.types.Scene.scene_blockmesh_panel_categories
-    del bpy.types.Scene.test_enum
-    del bpy.types.Scene.cellShapes
-    del bpy.types.Scene.cellShape_units
-    del bpy.types.Scene.mfile_item_ptr
-    del bpy.types.Scene.mfile_item
-    del bpy.types.Scene.mfile_item_index
-    del bpy.types.Scene.mesh_dict_name
-    del bpy.types.Scene.mesh_dict_path
-    del bpy.types.Scene.row_en
-    del bpy.types.Scene.cell_x
-    del bpy.types.Scene.cell_y
-    del bpy.types.Scene.cell_z
-    del bpy.types.Scene.ctm
-    del bpy.types.Scene.transform
-    del bpy.types.Scene.transformation_methods
-    del bpy.types.Scene.snapping
-    del bpy.types.Scene.snapping_methods
-    del bpy.types.Scene.simblk
-    del bpy.types.Scene.simblk_index
-    del bpy.types.Scene.bcustom
-    del bpy.types.Scene.bcustom_index
-    del bpy.types.Scene.vcustom
-    del bpy.types.Scene.vcustom_index
-    del bpy.types.Scene.fcustom
-    del bpy.types.Scene.fcustom_index
-    del bpy.types.Scene.ecustom
-    del bpy.types.Scene.ecustom_index
-    del bpy.types.Scene.vert_index
-    del bpy.types.Scene.cnt
-    del bpy.types.Scene.mode
-    del bpy.types.Scene.bdclist
-    del bpy.types.Scene.face_name
-    del bpy.types.Scene.facedes
-    del bpy.types.Scene.acustom
-    del bpy.types.Scene.acustom_index
-    del bpy.types.Scene.pcustom
-    del bpy.types.Scene.pcustom_index
-    del bpy.types.Scene.scustom
-    del bpy.types.Scene.scustom_index
-    del bpy.types.Scene.bscustom
-    del bpy.types.Scene.bscustom_index
-    del bpy.types.Scene.ipcnt
-    del bpy.types.Scene.edgelist
-    del bpy.types.Scene.face_sel_mode
+    property_names = [
+        "stl_file", "stl_file_name", "ui_category", "tool_type", "prompt_meshing_tool",
+        "scene_blockmesh_panel_categories", "test_enum", "cellShapes", "cellShape_units",
+        "mfile_item_ptr", "mfile_item", "mfile_item_index", "mesh_dict_name",
+        "mesh_dict_path", "row_en", "cell_x", "cell_y", "cell_z", "ctm", "transform",
+        "transformation_methods", "snapping", "snapping_methods", "simblk", "simblk_index",
+        "bcustom", "bcustom_index", "vcustom", "vcustom_index", "fcustom", "fcustom_index",
+        "ecustom", "ecustom_index", "vert_index", "cnt", "mode", "bdclist", "face_name",
+        "facedes", "acustom", "acustom_index", "pcustom", "pcustom_index", "scustom",
+        "scustom_index", "bscustom", "bscustom_index", "ipcnt", "edgelist", "face_sel_mode",
+        "geometry_items", "geometry_items_index", 
+        "stl_regions", "stl_regions_index",
+        "castellatedMesh", "snap", "addLayers",
+        "maxLocalCells", "maxGlobalCells", "minRefinementCells", "maxLoadUnbalance",
+        "nCellsBetweenLevels", "resolveFeatureAngle", "planarAngle",
+        "locationInMeshX", "locationInMeshY", "locationInMeshZ",
+        "allowFreeStandingZoneFaces", "cast_features", "cast_features_index",
+        "cast_refinement_surfaces", "cast_refinement_surfaces_index",
+        "cast_refinement_regions", "cast_refinement_regions_index",
+        "nSmoothPatch", "tolerance", "nSolveIter", "nRelaxIter", 
+        "useFeatureSnap", "nFeatureSnapIter", "implicitFeatureSnap", 
+        "explicitFeatureSnap", "multiRegionFeatureSnap",
+        "relativeSizes", "thickness_mode", "expansionRatio", "finalLayerThickness",
+        "firstLayerThickness", "overallThickness", "minThickness", "featureAngle",
+        "nGrow", "maxFaceThicknessRatio", "nSmoothSurfaceNormals", "nSmoothThickness",
+        "minMedialAxisAngle", "maxThicknessToMedialRatio", "nSmoothNormals",
+        "slipFeatureAngle", "layerRelaxIter", "nBufferCellsNoExtrude", "nLayerIter",
+        "nRelaxedIter", "additionalReporting", "layer_patches", "layer_patches_index",
+        "includeMeshQualityDict", "meshQualityDictPath", "snappy_dict_preview",
+        "current_surface_tab", "use_gap_level", "gap_level_increment",
+        "handleSnapProblems", "useTopologicalSnapDetection", "show_layer_advanced",
+        "layer_strategy", "detectExtrusionIsland", "show_advanced_quality",
+        "castellated_tab", "snap_tab", "layer_tab", "quality_tab",
+        "geometry_tab",  # Add this line
+        "use_debug_flags", "debugFlag_mesh", "debugFlag_intersections",
+        "debugFlag_featureSeeds", "debugFlag_attraction", "debugFlag_layerInfo",
+        "writeFlag_scalarLevels", "writeFlag_layerSets", "writeFlag_layerFields",
+    ]
+    
+    for prop in property_names:
+        if hasattr(bpy.types.Scene, prop):
+            try:
+                delattr(bpy.types.Scene, prop)
+            except Exception as e:
+                print(f"Failed to delete property {prop}: {e}")
+    
+    try:
+        del bpy.types.Scene.mesh_quality
+        del bpy.types.Scene.relaxed_mesh_quality
+    except Exception as e:
+        print(f"Failed to delete mesh quality properties: {e}")
+    
+    try:
+        if add_tutorials_to_scene in bpy.app.handlers.load_factory_startup_post:
+            bpy.app.handlers.load_factory_startup_post.remove(add_tutorials_to_scene)
+        if add_recents_to_scene in bpy.app.handlers.load_factory_startup_post:
+            bpy.app.handlers.load_factory_startup_post.remove(add_recents_to_scene)
+    except Exception as e:
+        print(f"Error removing handlers: {e}")

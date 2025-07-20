@@ -10,10 +10,32 @@ from venturial.views.mainpanel.recents import recents_menu
 from venturial.views.mainpanel.meshing_tools.blockmesh import blockmesh_menu
 from venturial.views.mainpanel.meshing_tools.snappyhexmesh import snappyhexmesh_menu
 from venturial.models.edges_panel_operators import *
+from venturial.models.snappyhexmesh.castellated_operators import *
 
 import blf
-
 import time, bpy
+
+def get_mainpanel_categories(self, context):
+    tool = context.scene.meshing_tool
+    if tool == "SnappyHexMesh":
+        return [
+            # ("Explore", "Explore", ""),  # Removed to hide Explore in castellation tabs
+            ("Geometry", "Geometry", ""),
+            ("Castellated", "Castellated", ""),
+            ("Snap", "Snap", ""),
+            ("LayerControl", "Layer Control", ""),
+            ("MeshQuality", "Mesh Quality", ""),
+            ("Dictionary", "Dictionary", ""),
+        ]
+    else:
+        return [
+            ("Explore", "Explore", ""),
+            ("Geometry", "Geometry", ""),
+            ("Edges", "Edges", ""),
+            ("Boundary", "Boundary", ""),
+            ("Visualize", "Visualize", ""),
+            ("Run", "Run", ""),
+        ]
 
 class layout_controller:
     """Controller class for defining and designating layout callbacks"""
@@ -25,13 +47,18 @@ class layout_controller:
                          "Edges": "VNT_ST_edges",
                          "Step Controls": "VNT_ST_step_controls",
                          "Run": "VNT_ST_run",
-                         "Boundary": "VNT_ST_boundary"}
+                         "Boundary": "VNT_ST_boundary",
+                         # SnappyHexMesh tabs
+                         "Castellated": "VNT_ST_snappyhexmesh",
+                         "Snap": "VNT_ST_snappyhexmesh",
+                         "LayerControl": "VNT_ST_snappyhexmesh",
+                         "MeshQuality": "VNT_ST_snappyhexmesh",
+                         "Dictionary": "VNT_ST_snappyhexmesh"}
         
     def output(self, layout, context):
         layout = layout.box()
         layout.separator(factor=0.05)
-        
-        getattr(self, self.callback[self.type])(layout, context)
+        getattr(self, self.callback.get(self.type, "VNT_ST_explorer"))(layout, context)
         
     def VNT_ST_explorer(self, layout, context):
         cs = context.scene
@@ -87,47 +114,9 @@ class layout_controller:
 
         if cs.current_tool_text == "BlockMesh":
             getattr(blockmesh_menu(), "layout")(tools, context)
-
         else:
             getattr(snappyhexmesh_menu(), "layout")(tools, context)
-
-
-        # THis feature is to be implemented later down the line
-        # projects = layout.box()
-        # r7 = projects.row() 
-
-        # This shabby piece of code is similar to the draw method of top navigation bar, but relatively better.
-        # This creates a horizontal tabs list of active projects (cases) dynamically. 
-        # for i in range(0, len(cs.mfile_item)):
-        #     x = r7.column(align=True).row(align=True)
-            
-        #     x.operator("VNT_OT_active_project_indicator", 
-        #                text=cs.mfile_item[i].ITEM_name, 
-        #                emboss = True if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier else False).active_file_id = cs.mfile_item[i].ITEM_identifier
-            
-        #     x.operator("vnt.deactivate_mesh_file_item",
-        #                text="",
-        #                emboss = True if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier else False,
-        #                icon="PANEL_CLOSE").dump_file_id = cs.mfile_item[i].ITEM_identifier
-            
-        #     x.scale_y = 1.7 if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier else 1.9
-        #     x.scale_x = 0.9730 + len(cs.mfile_item)*(0.009 if len(cs.mfile_item) == 3 else 0.01) if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier else 1.0
     
-        # r7.ui_units_y = 0.00001
-            
-        # r8 = projects.row(align=True)
-        # for i in range(0, len(cs.mfile_item)):
-        #     y = r8.column(align=True)
-        #     if cs.mfile_item[i].ITEM_identifier == cs.mfile_item[cs.mfile_item_index].ITEM_identifier:
-        #         y.label(text="") # Active tab in the view
-        #     else:
-        #         y.scale_y = 0.8
-        #         y.box().label(text="") # Passive tabs in the view
-        
-        # r10 = projects.row()
-        # r10.scale_y = 1.4
-        # r10.template_list("CUSTOM_UL_blocks", "", cs, "bcustom", cs, "bcustom_index", rows=2)
-                   
     def VNT_ST_visualize(self, layout, context):
         outline = layout.box()
         
@@ -228,7 +217,7 @@ class layout_controller:
         min_rows = 3
         row = layout.row()
 
-        split = layout.split(factor=0.2)
+        split = layout.split(factor=0.4)
         split.template_list("CUSTOM_UL_edges_Main","", cs, "ecustom", cs, "ecustom_index", rows=min_rows)
         
         if len(ec) > 0 and cs.ecustom_index != -1:
@@ -244,13 +233,18 @@ class layout_controller:
             )
         
         row1 = layout.row()
+        row1.prop(cs, "curve_type", text="Curve Type")
         draw_p(self, context)
-        row1.operator('vnt.new_edge')
-        row1.prop(cs, "curve_type")
-        row1.operator('vnt.remove_edge')
+
+        alignrow = layout.row()
+        alignrow.prop(cs, "edge_alignment", text="Alignment")
+
         row2 = layout.row()
-        row2.operator('vnt.new_vert')
-        row2.operator('vnt.remove_vert')
+        row2.operator('vnt.new_edge')
+        row2.operator('vnt.remove_edge')
+        row3 = layout.row()
+        row3.operator('vnt.new_vert')
+        row3.operator('vnt.remove_vert')
 
         if len(ec):
             layout.prop(ec[cs.ecustom_index], "color")
@@ -363,6 +357,12 @@ class layout_controller:
         row.alert = True
         row.operator(VNT_OT_cleardictfileonly.bl_idname, icon="TRASH", text="Clear Blockmesh Dictionary")
         row.ui_units_y = 1.7
+
+    def VNT_ST_snappyhexmesh(self, layout, context):
+        """Handles all SnappyHexMesh-specific tabs"""
+        cs = context.scene
+        tools = layout.box()
+        getattr(snappyhexmesh_menu(), "layout")(tools, context)
 
 
 class VNT_OT_active_project_indicator(Operator):

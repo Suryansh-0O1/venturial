@@ -34,6 +34,8 @@ Venturial installs like most other Blender-addons. Read more on [Blender addons]
 3. Within Blender, at the top bar, go to Edit >> Preferences. The Blender preferences window will open. Click the Addons section from the vertical menu. Click the install button. A file browser should open. Locate venturial's zip folder and click on the Install Add-on button.
 4. Finally, enable venturial by clicking the checkbox. You are ready to use Venturial. 
 
+5. Note: To use Venturial Node, which is a tree-node representation, you must download the pyvnt.whl file and place it in the libs/pyvnt folder. If this is not done, you will encounter an error while registering venturial-nodes. [PyVnt](https://github.com/FOSSEE/pyvnt)
+
 Licensing
 -----------------------------------------------------
 1. Venturial is a free and fully open-sourced software built by the FOSSEE project and licensed under GPL 3.0.

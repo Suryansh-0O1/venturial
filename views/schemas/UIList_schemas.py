@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import (UIList, PropertyGroup)
-from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty
+from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, FloatProperty, FloatVectorProperty
 #from venturial.models.header.file_handling_operators import VNT_OT_deactivate_mesh_file_item
 class VNT_UL_mesh_file_manager(UIList):
     """Callable class for mesh file manager"""
@@ -67,6 +67,20 @@ class fileitemproperties(PropertyGroup):
     ITEM_location : StringProperty(subtype="DIR_PATH")
     ITEM_history : StringProperty()
     ITEM_identifier : StringProperty()
+    
+    # Add geometry properties needed for SnappyHexMesh
+    geometry_type : EnumProperty(
+        name="Type", 
+        items=[
+            ("searchableBox", "Box", ""),
+            ("searchableSphere", "Sphere", ""),
+        ],
+        default="searchableBox"
+    )
+    box_min : FloatVectorProperty(size=3)
+    box_max : FloatVectorProperty(size=3)
+    sphere_center : FloatVectorProperty(size=3)
+    sphere_radius : FloatProperty()
    
         
 class tutorialitemproperties(PropertyGroup):
@@ -112,7 +126,6 @@ class CUSTOM_UL_verts(UIList):
         r2split = r2.split(factor = 0.3)
         r2c1 = r2split.column()
         r2c2 = r2split.column()
-        
         r2c1.prop(item, "vertindex", text="", emboss=False, translate=False)
         r2c2.prop(item, "name", text="", emboss=False, translate=False)
         
