@@ -268,8 +268,8 @@ class CLASSY_OT_install_python_deps(bpy.types.Operator):
             "import subprocess, sys; "
             "subprocess.run([sys.executable, '-m', 'ensurepip', '--user'], check=True); "
             "subprocess.run([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip', '--user'], check=True); "
-            f"subprocess.run([sys.executable, '-m', 'pip', 'install', 'numpy', 'scipy', 'pyvista', '--target', {repr(libs_dir)}], check=True); "
-            f"subprocess.run([sys.executable, '-m', 'pip', 'install', 'numba', 'nptyping', 'classy_blocks', '--no-deps', '--target', {repr(libs_dir)}], check=True)"
+            f"subprocess.run([sys.executable, '-m', 'pip', 'install', 'numpy', 'scipy', 'pyvista', 'trimesh', '--target', {repr(libs_dir)}], check=True); "
+            f"subprocess.run([sys.executable, '-m', 'pip', 'install', 'llvmlite', 'numba', 'nptyping', 'classy_blocks', '--no-deps', '--target', {repr(libs_dir)}], check=True)"
         ]
         
         self._process = subprocess.Popen(cmd)
