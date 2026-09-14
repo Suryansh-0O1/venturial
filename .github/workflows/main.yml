@@ -1,0 +1,82 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Dependencies
+        run: |
+          pip install pytest pytest-cov numpy scipy pyvista trimesh numba llvmlite nptyping classy_blocks
+      - name: Run Unit Tests
+        run: pytest tests/unit -v
+
+  integration:
+    name: Integration Tests
+    needs: unit
+    # Only run integration tests on Pull Requests to save compute on every single commit
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Headless Blender
+        # Change this URL if you need a specific Blender version for testing
+        run: |
+          wget https://mirror.clarkson.edu/blender/release/Blender4.0/blender-4.0.0-linux-x64.tar.xz
+          tar -xf blender-4.0.0-linux-x64.tar.xz
+      - name: Install Addon to Headless Blender
+        run: |
+          mkdir -p ~/.config/blender/4.0/scripts/addons
+          cp -r . ~/.config/blender/4.0/scripts/addons/venturial
+      - name: Run Integration Tests
+        run: |
+          # Example test script call, replace with your actual integration test script when written
+          chmod +x run_blender_tests.sh
+          ./run_blender_tests.sh ./blender-4.0.0-linux-x64/blender tests/integration/test_registration.py
+
+  e2e:
+    name: End-to-End Tests
+    needs: unit
+    # Only run E2E on merges to main (push) or manual triggers due to time/cost
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    container: opencfd/openfoam-run
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run E2E Tests in OpenFOAM Container
+        run: |
+          chmod +x run_e2e_tests.sh
+          bash run_e2e_tests.sh
+
+  package:
+    name: Package Release
+    # Run only when a new release is published (tag)
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Zip Archive
+        run: |
+          # Zip the contents of the repo directly into the root venturial folder
+          mkdir venturial
+          cp -r * venturial/ || true
+          rm -rf venturial/venturial
+          zip -r venturial.zip venturial/
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: venturial.zip
