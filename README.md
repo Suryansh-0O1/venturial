@@ -1,5 +1,4 @@
 # Venturial: A Comprehensive GUI for OpenFOAM
------------------------------------------------------
 
 Venturial is a Blender addon that alleviates the effort to build and manage OpenFOAM cases. 
 
@@ -25,7 +24,6 @@ Venturial is built with a test-driven architecture designed to keep future featu
 - **CI/CD Automation:** Every push, PR, and tag triggers a GitHub Actions pipeline (`.github/workflows/main.yml`) that validates the addon against the testing pyramid (running OpenFOAM via Docker) and automatically packages release zips.
 
 ## Installation
------------------------------------------------------
 
 Venturial installs like most standard Blender addons, but comes with an automated dependency installer built into the UI.
 
@@ -35,14 +33,12 @@ Venturial installs like most standard Blender addons, but comes with an automate
 4. **Important:** Open the Venturial sidebar in the 3D Viewport. If you see a warning about missing dependencies, simply click the **"Install Python Dependencies"** button. Venturial will safely download and sandbox the required math libraries into its own folder in the background!
 
 ## Genesis
------------------------------------------------------
 
 Venturial is inspired from [reynolds-blender](https://github.com/dmsurti/reynolds-blender), a reference implementation of [reynolds](https://github.com/dmsurti/reynolds). It is among the open-sourced software products built by the [FOSSEE](https://fossee.in/) project at [IIT Bombay](https://www.iitb.ac.in/) and managed by [CFD-FOSSEE Team](https://cfd.fossee.in/home). 
 
 If you wish to contribute to Venturial or be a part of the development team, reach out to us at `contact-cfd@fossee.in`.
 
 ## Licensing
------------------------------------------------------
 1. Venturial is a free and fully open-sourced software built by the FOSSEE project and licensed under GPL 3.0.
 2. Venturial is not approved or endorsed by OpenLimited, producer and distributor of the OpenFOAM software via www.openfoam.com, and owner of the OPENFOAM® and OpenCFD® trademarks.
 3. Copyright (c) 2023 FOSSEE, CFD-FOSSEE.
