@@ -44,7 +44,6 @@ If you wish to contribute to Venturial or be a part of the development team, rea
 3. Copyright (c) 2023 FOSSEE, CFD-FOSSEE.
 
 ## Citations
------------------------------------------------------
 Venturial is an ongoing project and has several papers associated with it:
 
 - A poster about Venturial was published in the [Proceedings of the 23rd Python in Science Conference 2024, Tacoma Washington, USA](https://doi.org/10.25080/tpwg2365).  
