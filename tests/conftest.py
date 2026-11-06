@@ -1,5 +1,15 @@
 import pytest
 import sys
+import os
+
+# Add repo root and parent to sys.path so tests can import modules smoothly
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
+parent_dir = os.path.dirname(repo_root)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 # Patch numpy 2.0 backwards compatibility for older classy_blocks/nptyping versions 
 # so unit tests run seamlessly on local python 3.12+ (numpy 2.x) without needing Blender 4.0's bundled numpy 1.x
